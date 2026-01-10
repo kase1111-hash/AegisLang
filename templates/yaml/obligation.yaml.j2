@@ -1,0 +1,60 @@
+# Source: {{ clause.source_text | truncate(80) }}
+# Clause ID: {{ clause.clause_id }}
+# Generated: {{ timestamp }}
+# Confidence: {{ confidence }}
+
+control:
+  id: {{ clause.clause_id }}
+  type: {{ clause.type }}
+  rule: "{{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}"
+
+  actor:
+    entity: "{{ clause.actor.entity }}"
+{% if mappings.actor_path %}
+    mapped_to: "{{ mappings.actor_path }}"
+{% endif %}
+
+  action:
+    operation: "{{ clause.action.verb }}"
+{% if clause.action.modifiers %}
+    modifiers:
+{% for mod in clause.action.modifiers %}
+      - "{{ mod }}"
+{% endfor %}
+{% endif %}
+
+{% if clause.object %}
+  object:
+    entity: "{{ clause.object.entity }}"
+{% if mappings.object_path %}
+    mapped_to: "{{ mappings.object_path }}"
+{% endif %}
+{% endif %}
+
+{% if clause.condition %}
+  trigger:
+    event: "{{ clause.condition.trigger }}"
+{% if clause.condition.temporal %}
+    temporal: "{{ clause.condition.temporal }}"
+{% endif %}
+{% endif %}
+
+{% if clause.temporal_scope %}
+  temporal_scope:
+{% if clause.temporal_scope.deadline %}
+    deadline: "{{ clause.temporal_scope.deadline }}"
+{% endif %}
+{% if clause.temporal_scope.frequency %}
+    frequency: "{{ clause.temporal_scope.frequency }}"
+{% endif %}
+{% if clause.temporal_scope.duration %}
+    duration: "{{ clause.temporal_scope.duration }}"
+{% endif %}
+{% endif %}
+
+  severity: {{ severity }}
+
+  metadata:
+    source_document: "{{ doc_id }}"
+    confidence: {{ confidence }}
+    generated_by: "aegislang-compiler-v{{ version }}"

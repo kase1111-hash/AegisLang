@@ -1,0 +1,227 @@
+"""
+Validator class for compliance rule: {{ clause.clause_id }}
+
+Source: {{ clause.source_text | truncate(70) }}
+Generated: {{ timestamp }}
+Confidence: {{ confidence }}
+"""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Generic, TypeVar
+
+
+class ComplianceStatus(Enum):
+    """Status of compliance check."""
+    COMPLIANT = "compliant"
+    VIOLATION = "violation"
+    PENDING = "pending"
+    NOT_APPLICABLE = "not_applicable"
+
+
+@dataclass
+class ValidationResult:
+    """Result of a compliance validation."""
+    clause_id: str
+    status: ComplianceStatus
+    message: str
+    checked_at: datetime = field(default_factory=datetime.utcnow)
+    entity_id: str | None = None
+    details: dict[str, Any] = field(default_factory=dict)
+
+
+T = TypeVar("T")
+
+
+class BaseValidator(ABC, Generic[T]):
+    """Base class for compliance validators."""
+
+    clause_id: str
+    clause_type: str
+    source_text: str
+    confidence: float
+
+    @abstractmethod
+    def validate(self, entity: T) -> ValidationResult:
+        """Validate an entity against the compliance rule."""
+        pass
+
+    @abstractmethod
+    def is_applicable(self, entity: T) -> bool:
+        """Check if this rule applies to the given entity."""
+        pass
+
+
+class {{ clause.clause_id | replace('-', '_') | replace('.', '_') | title }}Validator(BaseValidator[dict[str, Any]]):
+    """
+    Validator for {{ clause.type }} rule: {{ clause.clause_id }}
+
+    Rule: {{ clause.actor.entity }} {{ 'must' if clause.type == 'obligation' else 'must not' }} {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}
+    """
+
+    clause_id = "{{ clause.clause_id }}"
+    clause_type = "{{ clause.type }}"
+    source_text = """{{ clause.source_text }}"""
+    confidence = {{ confidence }}
+
+    def __init__(self):
+        self.actor_entity = "{{ clause.actor.entity | lower }}"
+        self.action_verb = "{{ clause.action.verb | lower }}"
+{% if clause.object %}
+        self.object_entity = "{{ clause.object.entity | lower }}"
+{% endif %}
+{% if clause.condition %}
+        self.condition_trigger = "{{ clause.condition.trigger }}"
+{% endif %}
+{% if clause.temporal_scope and clause.temporal_scope.deadline %}
+        self.deadline = "{{ clause.temporal_scope.deadline }}"
+{% endif %}
+
+    def is_applicable(self, entity: dict[str, Any]) -> bool:
+        """Check if this rule applies to the given entity."""
+        entity_type = entity.get("type", "").lower()
+        entity_role = entity.get("role", "").lower()
+
+        # Check if entity matches the actor
+        if self.actor_entity in entity_type or self.actor_entity in entity_role:
+            return True
+
+{% if clause.condition %}
+        # Check if condition is met
+        condition_met = entity.get("condition_met", False)
+        trigger_value = entity.get("trigger", "")
+        if "{{ clause.condition.trigger | lower }}" in str(trigger_value).lower():
+            return condition_met
+{% endif %}
+
+        return False
+
+    def validate(self, entity: dict[str, Any]) -> ValidationResult:
+        """Validate an entity against the {{ clause.type }} rule."""
+        entity_id = entity.get("id", "unknown")
+
+        # Check applicability
+        if not self.is_applicable(entity):
+            return ValidationResult(
+                clause_id=self.clause_id,
+                status=ComplianceStatus.NOT_APPLICABLE,
+                message="Rule does not apply to this entity",
+                entity_id=entity_id,
+            )
+
+{% if clause.type == 'obligation' %}
+        # Check obligation compliance
+        action_status = entity.get(f"{self.action_verb}_status", False)
+        action_completed = entity.get(f"{self.action_verb}_completed", False)
+
+        is_compliant = action_status or action_completed
+
+{% if clause.temporal_scope and clause.temporal_scope.deadline %}
+        # Check deadline
+        if is_compliant:
+            created_at = entity.get("created_at")
+            completed_at = entity.get(f"{self.action_verb}_completed_at")
+            if created_at and completed_at:
+                # Parse deadline and check timing
+                deadline_exceeded = self._check_deadline(created_at, completed_at)
+                if deadline_exceeded:
+                    return ValidationResult(
+                        clause_id=self.clause_id,
+                        status=ComplianceStatus.VIOLATION,
+                        message=f"Deadline exceeded: {{ clause.actor.entity }} must {{ clause.action.verb }} within {{ clause.temporal_scope.deadline }}",
+                        entity_id=entity_id,
+                        details={"deadline": self.deadline, "reason": "deadline_exceeded"},
+                    )
+{% endif %}
+
+        if is_compliant:
+            return ValidationResult(
+                clause_id=self.clause_id,
+                status=ComplianceStatus.COMPLIANT,
+                message=f"Obligation satisfied: {{ clause.actor.entity }} has {{ clause.action.verb }}{% if clause.object %}ed {{ clause.object.entity }}{% endif %}",
+                entity_id=entity_id,
+            )
+        else:
+            return ValidationResult(
+                clause_id=self.clause_id,
+                status=ComplianceStatus.VIOLATION,
+                message=f"Obligation violated: {{ clause.actor.entity }} must {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}",
+                entity_id=entity_id,
+                details={"required_action": self.action_verb},
+            )
+
+{% elif clause.type == 'prohibition' %}
+        # Check prohibition compliance
+        action_status = entity.get(f"{self.action_verb}_status", False)
+        action_attempted = entity.get(f"{self.action_verb}_attempted", False)
+
+        is_violated = action_status or action_attempted
+
+        if not is_violated:
+            return ValidationResult(
+                clause_id=self.clause_id,
+                status=ComplianceStatus.COMPLIANT,
+                message=f"Prohibition respected: {{ clause.actor.entity }} has not {{ clause.action.verb }}{% if clause.object %}ed {{ clause.object.entity }}{% endif %}",
+                entity_id=entity_id,
+            )
+        else:
+            return ValidationResult(
+                clause_id=self.clause_id,
+                status=ComplianceStatus.VIOLATION,
+                message=f"Prohibition violated: {{ clause.actor.entity }} must not {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}",
+                entity_id=entity_id,
+                details={"prohibited_action": self.action_verb},
+            )
+
+{% else %}
+        # Generic compliance check for {{ clause.type }}
+        return ValidationResult(
+            clause_id=self.clause_id,
+            status=ComplianceStatus.COMPLIANT,
+            message=f"Rule {{ clause.clause_id }} checked",
+            entity_id=entity_id,
+        )
+{% endif %}
+
+{% if clause.temporal_scope and clause.temporal_scope.deadline %}
+    def _check_deadline(self, created_at: datetime, completed_at: datetime) -> bool:
+        """Check if the deadline was exceeded."""
+        deadline_str = self.deadline.lower()
+
+        # Parse common deadline formats
+        if "day" in deadline_str:
+            days = int("".join(filter(str.isdigit, deadline_str)) or "0")
+            deadline_delta = timedelta(days=days)
+        elif "hour" in deadline_str:
+            hours = int("".join(filter(str.isdigit, deadline_str)) or "0")
+            deadline_delta = timedelta(hours=hours)
+        elif "week" in deadline_str:
+            weeks = int("".join(filter(str.isdigit, deadline_str)) or "0")
+            deadline_delta = timedelta(weeks=weeks)
+        else:
+            return False  # Unknown format, assume compliant
+
+        expected_completion = created_at + deadline_delta
+        return completed_at > expected_completion
+{% endif %}
+
+    def __repr__(self) -> str:
+        return f"<{{ clause.clause_id | replace('-', '_') | replace('.', '_') | title }}Validator(clause_id='{self.clause_id}')>"
+
+
+# Factory function for creating validators
+def create_validator() -> {{ clause.clause_id | replace('-', '_') | replace('.', '_') | title }}Validator:
+    """Create a new instance of the validator."""
+    return {{ clause.clause_id | replace('-', '_') | replace('.', '_') | title }}Validator()
+
+
+# Metadata for validator discovery
+CLAUSE_ID = "{{ clause.clause_id }}"
+CLAUSE_TYPE = "{{ clause.type }}"
+SOURCE_TEXT = """{{ clause.source_text }}"""
+CONFIDENCE = {{ confidence }}
+VALIDATOR_CLASS = {{ clause.clause_id | replace('-', '_') | replace('.', '_') | title }}Validator

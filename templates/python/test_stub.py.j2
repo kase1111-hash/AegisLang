@@ -1,0 +1,110 @@
+"""
+Test for compliance rule: {{ clause.clause_id }}
+
+Source: {{ clause.source_text | truncate(70) }}
+Generated: {{ timestamp }}
+Confidence: {{ confidence }}
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class Test{{ clause.clause_id | replace('-', '_') | replace('.', '_') }}:
+    """Test cases for {{ clause.type }} rule: {{ clause.clause_id }}"""
+
+    @pytest.fixture
+    def compliant_{{ clause.actor.entity | lower | replace(' ', '_') }}(self):
+        """Create a compliant {{ clause.actor.entity }} fixture."""
+        return {
+            "id": "test_{{ clause.actor.entity | lower | replace(' ', '_') }}_001",
+{% if clause.type == 'obligation' %}
+            "{{ clause.action.verb | lower }}_status": True,
+{% elif clause.type == 'prohibition' %}
+            "{{ clause.action.verb | lower }}_status": False,
+{% endif %}
+{% if clause.object %}
+            "{{ clause.object.entity | lower | replace(' ', '_') }}": "valid_value",
+{% endif %}
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_{{ clause.actor.entity | lower | replace(' ', '_') }}(self):
+        """Create a non-compliant {{ clause.actor.entity }} fixture."""
+        return {
+            "id": "test_{{ clause.actor.entity | lower | replace(' ', '_') }}_002",
+{% if clause.type == 'obligation' %}
+            "{{ clause.action.verb | lower }}_status": False,
+{% elif clause.type == 'prohibition' %}
+            "{{ clause.action.verb | lower }}_status": True,
+{% endif %}
+{% if clause.object %}
+            "{{ clause.object.entity | lower | replace(' ', '_') }}": None,
+{% endif %}
+            "created_at": datetime.utcnow(),
+        }
+
+{% if clause.type == 'obligation' %}
+    def test_{{ clause.action.verb | lower }}_obligation_met(
+        self, compliant_{{ clause.actor.entity | lower | replace(' ', '_') }}
+    ):
+        """Test that obligation is satisfied when {{ clause.action.verb }} is performed."""
+        entity = compliant_{{ clause.actor.entity | lower | replace(' ', '_') }}
+
+        # Assert obligation is met
+        assert entity["{{ clause.action.verb | lower }}_status"] is True, \
+            "{{ clause.actor.entity }} must {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}"
+
+    def test_{{ clause.action.verb | lower }}_obligation_violated(
+        self, non_compliant_{{ clause.actor.entity | lower | replace(' ', '_') }}
+    ):
+        """Test that violation is detected when {{ clause.action.verb }} is not performed."""
+        entity = non_compliant_{{ clause.actor.entity | lower | replace(' ', '_') }}
+
+        # Assert obligation is violated
+        assert entity["{{ clause.action.verb | lower }}_status"] is False, \
+            "Expected violation when {{ clause.actor.entity }} does not {{ clause.action.verb }}"
+
+{% elif clause.type == 'prohibition' %}
+    def test_{{ clause.action.verb | lower }}_prohibition_respected(
+        self, compliant_{{ clause.actor.entity | lower | replace(' ', '_') }}
+    ):
+        """Test that prohibition is respected when {{ clause.action.verb }} is not performed."""
+        entity = compliant_{{ clause.actor.entity | lower | replace(' ', '_') }}
+
+        # Assert prohibition is respected
+        assert entity["{{ clause.action.verb | lower }}_status"] is False, \
+            "{{ clause.actor.entity }} must not {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}"
+
+    def test_{{ clause.action.verb | lower }}_prohibition_violated(
+        self, non_compliant_{{ clause.actor.entity | lower | replace(' ', '_') }}
+    ):
+        """Test that violation is detected when {{ clause.action.verb }} is performed."""
+        entity = non_compliant_{{ clause.actor.entity | lower | replace(' ', '_') }}
+
+        # Assert prohibition is violated
+        assert entity["{{ clause.action.verb | lower }}_status"] is True, \
+            "Expected violation when {{ clause.actor.entity }} does {{ clause.action.verb }}"
+{% endif %}
+
+{% if clause.condition %}
+    def test_condition_trigger(self):
+        """Test that rule applies when condition '{{ clause.condition.trigger }}' is met."""
+        # TODO: Implement condition testing for: {{ clause.condition.trigger }}
+        pytest.skip("Condition testing not yet implemented")
+{% endif %}
+
+{% if clause.temporal_scope and clause.temporal_scope.deadline %}
+    def test_deadline_compliance(self):
+        """Test deadline compliance: {{ clause.temporal_scope.deadline }}"""
+        # TODO: Implement deadline testing
+        pytest.skip("Deadline testing not yet implemented")
+{% endif %}
+
+
+# Metadata for test discovery
+CLAUSE_ID = "{{ clause.clause_id }}"
+CLAUSE_TYPE = "{{ clause.type }}"
+SOURCE_TEXT = """{{ clause.source_text }}"""
+CONFIDENCE = {{ confidence }}

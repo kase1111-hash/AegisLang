@@ -1,0 +1,41 @@
+-- Source: {{ clause.source_text | truncate(70) }}
+-- Clause ID: {{ clause.clause_id }}
+-- Generated: {{ timestamp }}
+-- Confidence: {{ confidence }}
+
+{% if clause.type == 'obligation' %}
+-- Obligation: {{ clause.actor.entity }} must {{ clause.action.verb }}
+ALTER TABLE {{ table_name }}
+ADD CONSTRAINT chk_{{ clause.clause_id | lower | replace('-', '_') }}
+CHECK (
+    {{ check_condition }}
+);
+
+-- Trigger for enforcement
+CREATE OR REPLACE FUNCTION enforce_{{ clause.clause_id | lower | replace('-', '_') }}()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NOT ({{ check_condition }}) THEN
+        RAISE EXCEPTION 'Compliance violation: {{ clause.clause_id }} - {{ clause.actor.entity }} must {{ clause.action.verb }}';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_{{ clause.clause_id | lower | replace('-', '_') }}
+BEFORE INSERT OR UPDATE ON {{ table_name }}
+FOR EACH ROW
+EXECUTE FUNCTION enforce_{{ clause.clause_id | lower | replace('-', '_') }}();
+
+{% elif clause.type == 'prohibition' %}
+-- Prohibition: {{ clause.actor.entity }} must not {{ clause.action.verb }}
+ALTER TABLE {{ table_name }}
+ADD CONSTRAINT chk_{{ clause.clause_id | lower | replace('-', '_') }}_prohibit
+CHECK (
+    NOT ({{ check_condition }})
+);
+
+{% endif %}
+
+COMMENT ON CONSTRAINT chk_{{ clause.clause_id | lower | replace('-', '_') }}{% if clause.type == 'prohibition' %}_prohibit{% endif %} ON {{ table_name }}
+IS 'AegisLang: {{ clause.source_text | truncate(200) }}';

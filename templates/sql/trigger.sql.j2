@@ -1,0 +1,104 @@
+-- Source: {{ clause.source_text | truncate(70) }}
+-- Clause ID: {{ clause.clause_id }}
+-- Generated: {{ timestamp }}
+-- Confidence: {{ confidence }}
+
+-- Advanced trigger for {{ clause.type }}: {{ clause.actor.entity }} {{ 'must' if clause.type == 'obligation' else 'must not' }} {{ clause.action.verb }}
+
+-- Create audit log table if not exists
+CREATE TABLE IF NOT EXISTS aegislang_audit_log (
+    log_id SERIAL PRIMARY KEY,
+    clause_id VARCHAR(100) NOT NULL,
+    table_name VARCHAR(100) NOT NULL,
+    operation VARCHAR(20) NOT NULL,
+    old_data JSONB,
+    new_data JSONB,
+    compliance_status VARCHAR(20) NOT NULL,
+    violation_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    user_id VARCHAR(100) DEFAULT current_user
+);
+
+-- Create enforcement function
+CREATE OR REPLACE FUNCTION enforce_{{ clause.clause_id | lower | replace('-', '_') }}_advanced()
+RETURNS TRIGGER AS $$
+DECLARE
+    is_compliant BOOLEAN := FALSE;
+    violation_msg TEXT;
+BEGIN
+{% if clause.type == 'obligation' %}
+    -- Check obligation compliance
+    IF ({{ check_condition }}) THEN
+        is_compliant := TRUE;
+    ELSE
+        violation_msg := 'Obligation violated: {{ clause.actor.entity }} must {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}';
+    END IF;
+{% elif clause.type == 'prohibition' %}
+    -- Check prohibition compliance
+    IF NOT ({{ check_condition }}) THEN
+        is_compliant := TRUE;
+    ELSE
+        violation_msg := 'Prohibition violated: {{ clause.actor.entity }} must not {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}';
+    END IF;
+{% elif clause.type == 'conditional' %}
+    -- Check conditional compliance
+    IF ({{ condition_check }}) THEN
+        IF ({{ check_condition }}) THEN
+            is_compliant := TRUE;
+        ELSE
+            violation_msg := 'Conditional obligation violated: When {{ clause.condition.trigger }}, {{ clause.actor.entity }} must {{ clause.action.verb }}';
+        END IF;
+    ELSE
+        is_compliant := TRUE;  -- Condition not met, rule does not apply
+    END IF;
+{% endif %}
+
+    -- Log the compliance check
+    INSERT INTO aegislang_audit_log (
+        clause_id,
+        table_name,
+        operation,
+        old_data,
+        new_data,
+        compliance_status,
+        violation_message
+    ) VALUES (
+        '{{ clause.clause_id }}',
+        TG_TABLE_NAME,
+        TG_OP,
+        CASE WHEN TG_OP = 'DELETE' OR TG_OP = 'UPDATE' THEN to_jsonb(OLD) ELSE NULL END,
+        CASE WHEN TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN to_jsonb(NEW) ELSE NULL END,
+        CASE WHEN is_compliant THEN 'COMPLIANT' ELSE 'VIOLATION' END,
+        violation_msg
+    );
+
+    -- Enforce compliance
+    IF NOT is_compliant THEN
+        RAISE EXCEPTION 'Compliance violation [{{ clause.clause_id }}]: %', violation_msg;
+    END IF;
+
+{% if clause.temporal_scope and clause.temporal_scope.deadline %}
+    -- Check deadline compliance
+    IF NEW.created_at + INTERVAL '{{ clause.temporal_scope.deadline }}' < NOW() THEN
+        RAISE WARNING 'Deadline approaching for {{ clause.clause_id }}: {{ clause.temporal_scope.deadline }}';
+    END IF;
+{% endif %}
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger
+DROP TRIGGER IF EXISTS trg_{{ clause.clause_id | lower | replace('-', '_') }}_advanced ON {{ table_name }};
+
+CREATE TRIGGER trg_{{ clause.clause_id | lower | replace('-', '_') }}_advanced
+BEFORE INSERT OR UPDATE OR DELETE ON {{ table_name }}
+FOR EACH ROW
+EXECUTE FUNCTION enforce_{{ clause.clause_id | lower | replace('-', '_') }}_advanced();
+
+-- Add comment for documentation
+COMMENT ON TRIGGER trg_{{ clause.clause_id | lower | replace('-', '_') }}_advanced ON {{ table_name }}
+IS 'AegisLang enforcement trigger for: {{ clause.source_text | truncate(200) }}';

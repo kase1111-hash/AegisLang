@@ -1,0 +1,39 @@
+# Source: {{ clause.source_text | truncate(80) }}
+# Clause ID: {{ clause.clause_id }}
+# Generated: {{ timestamp }}
+# Confidence: {{ confidence }}
+
+control:
+  id: {{ clause.clause_id }}
+  type: prohibition
+  rule: "MUST NOT {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}"
+
+  actor:
+    entity: "{{ clause.actor.entity }}"
+{% if mappings.actor_path %}
+    mapped_to: "{{ mappings.actor_path }}"
+{% endif %}
+
+  prohibited_action:
+    operation: "{{ clause.action.verb }}"
+    enforcement: "block"
+
+{% if clause.object %}
+  object:
+    entity: "{{ clause.object.entity }}"
+{% if mappings.object_path %}
+    mapped_to: "{{ mappings.object_path }}"
+{% endif %}
+{% endif %}
+
+{% if clause.condition %}
+  exception:
+    condition: "{{ clause.condition.trigger }}"
+{% endif %}
+
+  severity: critical
+
+  metadata:
+    source_document: "{{ doc_id }}"
+    confidence: {{ confidence }}
+    generated_by: "aegislang-compiler-v{{ version }}"
