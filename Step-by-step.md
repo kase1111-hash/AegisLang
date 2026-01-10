@@ -58,4 +58,4 @@
 - [x] Add license file
 - [x] Write changelog
 - [ ] Perform compliance review (GDPR, HIPAA, etc.)
-- [ ] Tag release & archive build artifacts
+- [x] Tag release & archive build artifacts
