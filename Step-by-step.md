@@ -27,8 +27,8 @@
 ## Testing & Validation
 - [x] Write unit tests
 - [x] Write integration tests
-- [ ] Write system/acceptance tests
-- [ ] Add regression test suite
+- [x] Write system/acceptance tests
+- [x] Add regression test suite
 - [ ] Conduct performance testing (load, stress)
 - [ ] Perform security checks (input, encryption, tokens)
 - [ ] Perform exploit testing (SQLi, XSS, overflow)
