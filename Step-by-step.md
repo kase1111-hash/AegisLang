@@ -18,7 +18,7 @@
 - [x] Add input validation & sanitation
 - [x] Implement error handling
 - [x] Add general logging
-- [ ] Add error logging (Sentry, ELK, etc.)
+- [x] Add error logging (Sentry, ELK, etc.)
 - [x] Secure configuration (.env or secrets manager)
 - [x] Add command-line interface (if needed)
 - [x] Build GUI or frontend (CLI application by design)
