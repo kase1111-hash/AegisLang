@@ -1,0 +1,404 @@
+"""
+AegisLang Compliance Validator - {{ clause.clause_id }}
+
+Source: {{ clause.source_text | truncate(70) }}
+Type: {{ clause.type }}
+Generated: {{ timestamp }}
+Confidence: {{ confidence }}
+
+This module provides a validator class for enforcing compliance with
+the regulatory clause in application code.
+"""
+
+from __future__ import annotations
+
+import logging
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Generic
+
+logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+CLAUSE_ID = "{{ clause.clause_id }}"
+CLAUSE_TYPE = "{{ clause.type }}"
+ACTOR_ENTITY = "{{ clause.actor.entity }}"
+ACTION_VERB = "{{ clause.action.verb }}"
+{% if clause.object %}
+OBJECT_ENTITY = "{{ clause.object.entity }}"
+{% else %}
+OBJECT_ENTITY = None
+{% endif %}
+CONFIDENCE = {{ confidence }}
+
+
+# =============================================================================
+# Data Classes
+# =============================================================================
+
+class ViolationSeverity(Enum):
+    """Severity levels for compliance violations."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+@dataclass
+class ComplianceViolation:
+    """Represents a compliance violation."""
+    clause_id: str
+    violation_type: str
+    message: str
+    severity: ViolationSeverity
+    entity_id: Optional[str] = None
+    entity_data: Optional[Dict[str, Any]] = None
+    occurred_at: datetime = field(default_factory=datetime.utcnow)
+    remediation: Optional[str] = None
+
+
+@dataclass
+class ComplianceResult:
+    """Result of a compliance check."""
+    passed: bool
+    clause_id: str
+    checked_at: datetime = field(default_factory=datetime.utcnow)
+    violations: List[ComplianceViolation] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def add_violation(self, violation: ComplianceViolation) -> None:
+        """Add a violation and mark as failed."""
+        self.violations.append(violation)
+        self.passed = False
+
+
+# =============================================================================
+# Base Validator
+# =============================================================================
+
+T = TypeVar('T')
+
+
+class BaseComplianceValidator(ABC, Generic[T]):
+    """Abstract base class for compliance validators."""
+
+    def __init__(self, clause_id: str, clause_type: str):
+        self.clause_id = clause_id
+        self.clause_type = clause_type
+        self._pre_check_hooks: List[Callable[[T], None]] = []
+        self._post_check_hooks: List[Callable[[T, ComplianceResult], None]] = []
+
+    @abstractmethod
+    def validate(self, entity: T) -> ComplianceResult:
+        """Validate an entity for compliance."""
+        pass
+
+    def add_pre_check_hook(self, hook: Callable[[T], None]) -> None:
+        """Add a hook to run before validation."""
+        self._pre_check_hooks.append(hook)
+
+    def add_post_check_hook(
+        self, hook: Callable[[T, ComplianceResult], None]
+    ) -> None:
+        """Add a hook to run after validation."""
+        self._post_check_hooks.append(hook)
+
+    def _run_pre_hooks(self, entity: T) -> None:
+        """Run all pre-check hooks."""
+        for hook in self._pre_check_hooks:
+            hook(entity)
+
+    def _run_post_hooks(self, entity: T, result: ComplianceResult) -> None:
+        """Run all post-check hooks."""
+        for hook in self._post_check_hooks:
+            hook(entity, result)
+
+
+# =============================================================================
+# Generated Validator
+# =============================================================================
+
+{% set class_name = clause.clause_id | replace('-', '') | replace('.', '') | replace('_', '') | title %}
+
+class {{ class_name }}Validator(BaseComplianceValidator[Dict[str, Any]]):
+    """
+    Validator for clause: {{ clause.clause_id }}
+
+    Type: {{ clause.type }}
+    Actor: {{ clause.actor.entity }}
+    Action: {{ clause.action.verb }}
+    {% if clause.object %}Object: {{ clause.object.entity }}{% endif %}
+
+    Source: {{ clause.source_text | truncate(150) }}
+    """
+
+    def __init__(self):
+        super().__init__(CLAUSE_ID, CLAUSE_TYPE)
+        self.severity = ViolationSeverity.{{ 'CRITICAL' if clause.type == 'prohibition' else 'HIGH' if clause.type == 'obligation' else 'MEDIUM' }}
+
+{% if clause.type == 'obligation' %}
+    def validate(self, entity: Dict[str, Any]) -> ComplianceResult:
+        """
+        Validate that {{ clause.actor.entity }} has performed {{ clause.action.verb }}.
+
+        Args:
+            entity: Entity data to validate
+
+        Returns:
+            ComplianceResult with pass/fail status and any violations
+        """
+        self._run_pre_hooks(entity)
+
+        result = ComplianceResult(
+            passed=True,
+            clause_id=self.clause_id,
+            metadata={
+                "entity_id": entity.get("id"),
+                "clause_type": self.clause_type,
+                "confidence": CONFIDENCE,
+            }
+        )
+
+        # Check if required action was completed
+        action_field = "{{ clause.action.verb | lower | replace(' ', '_') }}_completed"
+        action_completed = entity.get(action_field, False)
+
+        if not action_completed:
+            violation = ComplianceViolation(
+                clause_id=self.clause_id,
+                violation_type="obligation_not_met",
+                message=(
+                    f"{ACTOR_ENTITY} has not completed required action: {ACTION_VERB}"
+                ),
+                severity=self.severity,
+                entity_id=entity.get("id"),
+                entity_data=entity,
+                remediation=f"Ensure {ACTION_VERB} is performed{% if clause.object %} on {OBJECT_ENTITY}{% endif %}",
+            )
+            result.add_violation(violation)
+
+            logger.warning(
+                "Compliance violation detected",
+                extra={
+                    "clause_id": self.clause_id,
+                    "entity_id": entity.get("id"),
+                    "violation_type": "obligation_not_met",
+                }
+            )
+
+{% if clause.object %}
+        # Check object is valid
+        object_field = "{{ clause.object.entity | lower | replace(' ', '_') }}"
+        if not entity.get(object_field):
+            result.warnings.append(
+                f"Object '{OBJECT_ENTITY}' is missing or invalid"
+            )
+{% endif %}
+
+        self._run_post_hooks(entity, result)
+        return result
+
+{% elif clause.type == 'prohibition' %}
+    def validate(self, entity: Dict[str, Any]) -> ComplianceResult:
+        """
+        Validate that {{ clause.actor.entity }} has NOT performed {{ clause.action.verb }}.
+
+        Args:
+            entity: Entity data to validate
+
+        Returns:
+            ComplianceResult with pass/fail status and any violations
+        """
+        self._run_pre_hooks(entity)
+
+        result = ComplianceResult(
+            passed=True,
+            clause_id=self.clause_id,
+            metadata={
+                "entity_id": entity.get("id"),
+                "clause_type": self.clause_type,
+                "confidence": CONFIDENCE,
+            }
+        )
+
+        # Check if prohibited action was attempted
+        action_field = "{{ clause.action.verb | lower | replace(' ', '_') }}_attempted"
+        action_attempted = entity.get(action_field, False)
+
+        if action_attempted:
+            violation = ComplianceViolation(
+                clause_id=self.clause_id,
+                violation_type="prohibition_violated",
+                message=(
+                    f"{ACTOR_ENTITY} has performed PROHIBITED action: {ACTION_VERB}"
+                ),
+                severity=ViolationSeverity.CRITICAL,
+                entity_id=entity.get("id"),
+                entity_data=entity,
+                remediation=f"Immediately cease {ACTION_VERB} activity and report to compliance",
+            )
+            result.add_violation(violation)
+
+            logger.error(
+                "CRITICAL: Prohibition violated",
+                extra={
+                    "clause_id": self.clause_id,
+                    "entity_id": entity.get("id"),
+                    "violation_type": "prohibition_violated",
+                }
+            )
+
+        self._run_post_hooks(entity, result)
+        return result
+
+{% else %}
+    def validate(self, entity: Dict[str, Any]) -> ComplianceResult:
+        """
+        Validate {{ clause.type }} clause for {{ clause.actor.entity }}.
+
+        Args:
+            entity: Entity data to validate
+
+        Returns:
+            ComplianceResult with pass/fail status and any violations
+        """
+        self._run_pre_hooks(entity)
+
+        result = ComplianceResult(
+            passed=True,
+            clause_id=self.clause_id,
+            metadata={
+                "entity_id": entity.get("id"),
+                "clause_type": self.clause_type,
+                "confidence": CONFIDENCE,
+            }
+        )
+
+        # Check compliance status
+        status_field = "{{ clause.action.verb | lower | replace(' ', '_') }}_status"
+        status = entity.get(status_field, "unknown")
+
+        if status == "violation":
+            violation = ComplianceViolation(
+                clause_id=self.clause_id,
+                violation_type="{{ clause.type }}_violation",
+                message=f"{ACTOR_ENTITY} is in violation state for {ACTION_VERB}",
+                severity=self.severity,
+                entity_id=entity.get("id"),
+            )
+            result.add_violation(violation)
+
+        self._run_post_hooks(entity, result)
+        return result
+
+{% endif %}
+
+{% if clause.condition %}
+    def check_condition(self, context: Dict[str, Any]) -> bool:
+        """
+        Check if the triggering condition is met.
+
+        Condition: {{ clause.condition.trigger }}
+
+        Args:
+            context: Context data for condition evaluation
+
+        Returns:
+            True if condition is met, False otherwise
+        """
+        # TODO: Implement condition checking logic
+        # Condition: {{ clause.condition.trigger }}
+        raise NotImplementedError(
+            "Condition checking requires domain-specific implementation"
+        )
+
+{% endif %}
+
+    def enforce(
+        self,
+        entity: Dict[str, Any],
+        raise_on_violation: bool = True,
+    ) -> ComplianceResult:
+        """
+        Validate and optionally enforce compliance.
+
+        Args:
+            entity: Entity to validate
+            raise_on_violation: If True, raise exception on violation
+
+        Returns:
+            ComplianceResult
+
+        Raises:
+            ComplianceViolationError: If validation fails and raise_on_violation is True
+        """
+        result = self.validate(entity)
+
+        if not result.passed and raise_on_violation:
+            raise ComplianceViolationError(
+                clause_id=self.clause_id,
+                violations=result.violations,
+            )
+
+        return result
+
+
+# =============================================================================
+# Exceptions
+# =============================================================================
+
+class ComplianceViolationError(Exception):
+    """Raised when a compliance violation is detected."""
+
+    def __init__(
+        self,
+        clause_id: str,
+        violations: List[ComplianceViolation],
+    ):
+        self.clause_id = clause_id
+        self.violations = violations
+        messages = [v.message for v in violations]
+        super().__init__(
+            f"Compliance violation for {clause_id}: {'; '.join(messages)}"
+        )
+
+
+# =============================================================================
+# Factory Function
+# =============================================================================
+
+def create_validator() -> {{ class_name }}Validator:
+    """Create and return the validator instance."""
+    return {{ class_name }}Validator()
+
+
+# =============================================================================
+# Convenience Functions
+# =============================================================================
+
+_default_validator: Optional[{{ class_name }}Validator] = None
+
+
+def get_validator() -> {{ class_name }}Validator:
+    """Get or create the default validator instance."""
+    global _default_validator
+    if _default_validator is None:
+        _default_validator = create_validator()
+    return _default_validator
+
+
+def validate(entity: Dict[str, Any]) -> ComplianceResult:
+    """Convenience function to validate an entity."""
+    return get_validator().validate(entity)
+
+
+def enforce(entity: Dict[str, Any]) -> ComplianceResult:
+    """Convenience function to enforce compliance (raises on violation)."""
+    return get_validator().enforce(entity, raise_on_violation=True)

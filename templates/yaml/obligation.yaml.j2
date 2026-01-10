@@ -1,0 +1,95 @@
+# AegisLang Compliance Rule - Obligation
+# Source: {{ clause.source_text | truncate(80) }}
+# Clause ID: {{ clause.clause_id }}
+# Generated: {{ timestamp }}
+# Confidence: {{ confidence }}
+
+---
+apiVersion: aegislang.io/v1
+kind: ComplianceRule
+metadata:
+  name: {{ clause.clause_id | lower | replace('.', '-') }}
+  labels:
+    aegislang.io/type: obligation
+    aegislang.io/confidence: "{{ confidence }}"
+    aegislang.io/source-doc: {{ doc_id }}
+  annotations:
+    aegislang.io/source-text: |
+      {{ clause.source_text | truncate(500) }}
+
+spec:
+  type: obligation
+  severity: {{ severity }}
+  enforcement: require
+
+  actor:
+    entity: "{{ clause.actor.entity }}"
+{% if clause.actor.qualifiers %}
+    qualifiers:
+{% for q in clause.actor.qualifiers %}
+      - "{{ q }}"
+{% endfor %}
+{% endif %}
+{% if mappings.actor_path %}
+    mappedTo: "{{ mappings.actor_path }}"
+{% endif %}
+
+  action:
+    verb: "{{ clause.action.verb }}"
+    description: "{{ clause.actor.entity }} must {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}"
+{% if clause.action.modifiers %}
+    modifiers:
+{% for m in clause.action.modifiers %}
+      - "{{ m }}"
+{% endfor %}
+{% endif %}
+
+{% if clause.object %}
+  object:
+    entity: "{{ clause.object.entity }}"
+{% if clause.object.qualifiers %}
+    qualifiers:
+{% for q in clause.object.qualifiers %}
+      - "{{ q }}"
+{% endfor %}
+{% endif %}
+{% if mappings.object_path %}
+    mappedTo: "{{ mappings.object_path }}"
+{% endif %}
+{% endif %}
+
+{% if clause.condition %}
+  trigger:
+    type: conditional
+    event: "{{ clause.condition.trigger }}"
+{% if clause.condition.temporal %}
+    temporal: "{{ clause.condition.temporal }}"
+{% endif %}
+{% endif %}
+
+{% if clause.temporal_scope %}
+  temporalScope:
+{% if clause.temporal_scope.deadline %}
+    deadline: "{{ clause.temporal_scope.deadline }}"
+{% endif %}
+{% if clause.temporal_scope.frequency %}
+    frequency: "{{ clause.temporal_scope.frequency }}"
+{% endif %}
+{% if clause.temporal_scope.duration %}
+    duration: "{{ clause.temporal_scope.duration }}"
+{% endif %}
+{% endif %}
+
+  compliance:
+    checkType: mandatory
+    onViolation: alert
+    remediation: "Ensure {{ clause.actor.entity }} performs {{ clause.action.verb }} action"
+
+  audit:
+    enabled: true
+    retentionDays: 365
+
+  metadata:
+    generatedBy: aegislang-compiler-v{{ version }}
+    templateVersion: "1.0.0"
+    traceId: {{ trace_id | default('pending') }}

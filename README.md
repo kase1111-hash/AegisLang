@@ -88,17 +88,17 @@ Follow these steps to set up and run AegisLang:
 - [x] Implement L5 Validation Layer (`trace_validator_agent.py`)
 
 ### Phase 3: Templates & Output Formats
-- [ ] Create YAML templates (`templates/yaml/`)
-- [ ] Create SQL templates (`templates/sql/`)
-- [ ] Create Python test templates (`templates/python/`)
+- [x] Create YAML templates (`templates/yaml/`)
+- [x] Create SQL templates (`templates/sql/`)
+- [x] Create Python test templates (`templates/python/`)
 
 ### Phase 4: API & Deployment
-- [ ] Implement REST API server
-- [ ] Create Dockerfile
-- [ ] Create docker-compose.yml
-- [ ] Set up CI/CD pipeline
+- [x] Implement REST API server
+- [x] Create Dockerfile
+- [x] Create docker-compose.yml
+- [x] Set up CI/CD pipeline
 
 ### Phase 5: Testing & Documentation
-- [ ] Write unit tests
-- [ ] Write integration tests
-- [ ] Create API documentation
+- [x] Write unit tests
+- [x] Write integration tests
+- [x] Create API documentation
