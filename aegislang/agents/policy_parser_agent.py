@@ -342,33 +342,40 @@ class MockLLMClient(BaseLLMClient):
     """Mock LLM client for testing without API calls."""
 
     def __init__(self):
-        self._clause_patterns = {
-            "must": ClauseType.OBLIGATION,
-            "shall": ClauseType.OBLIGATION,
-            "required": ClauseType.OBLIGATION,
-            "must not": ClauseType.PROHIBITION,
-            "shall not": ClauseType.PROHIBITION,
-            "prohibited": ClauseType.PROHIBITION,
-            "may": ClauseType.PERMISSION,
-            "permitted": ClauseType.PERMISSION,
-            "if": ClauseType.CONDITIONAL,
-            "when": ClauseType.CONDITIONAL,
-            "means": ClauseType.DEFINITION,
-            "defined as": ClauseType.DEFINITION,
-            "except": ClauseType.EXCEPTION,
-            "unless": ClauseType.EXCEPTION,
-        }
+        # Ordered from most specific to least specific for proper matching
+        self._clause_patterns = [
+            ("must not", ClauseType.PROHIBITION),
+            ("shall not", ClauseType.PROHIBITION),
+            ("prohibited", ClauseType.PROHIBITION),
+            ("defined as", ClauseType.DEFINITION),
+            ("means", ClauseType.DEFINITION),
+            ("except", ClauseType.EXCEPTION),
+            ("unless", ClauseType.EXCEPTION),
+            ("may", ClauseType.PERMISSION),
+            ("permitted", ClauseType.PERMISSION),
+            ("must", ClauseType.OBLIGATION),
+            ("shall", ClauseType.OBLIGATION),
+            ("required", ClauseType.OBLIGATION),
+            ("if", ClauseType.CONDITIONAL),
+            ("when", ClauseType.CONDITIONAL),
+        ]
 
     def parse_clause(self, clause_text: str) -> dict[str, Any]:
         """Parse clause using pattern matching (for testing)."""
-        clause_lower = clause_text.lower()
+        clause_lower = clause_text.lower().strip()
 
         # Detect clause type
         clause_type = ClauseType.OBLIGATION  # default
-        for pattern, ctype in self._clause_patterns.items():
-            if pattern in clause_lower:
-                clause_type = ctype
-                break
+
+        # Check for sentence-initial conditionals first
+        if clause_lower.startswith("if ") or clause_lower.startswith("when "):
+            clause_type = ClauseType.CONDITIONAL
+        else:
+            # Check patterns in priority order
+            for pattern, ctype in self._clause_patterns:
+                if pattern in clause_lower:
+                    clause_type = ctype
+                    break
 
         # Extract basic components using simple heuristics
         words = clause_text.split()

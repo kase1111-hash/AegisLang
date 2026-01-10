@@ -1,39 +1,89 @@
+# AegisLang Compliance Rule - Prohibition
 # Source: {{ clause.source_text | truncate(80) }}
 # Clause ID: {{ clause.clause_id }}
 # Generated: {{ timestamp }}
 # Confidence: {{ confidence }}
 
-control:
-  id: {{ clause.clause_id }}
+---
+apiVersion: aegislang.io/v1
+kind: ComplianceRule
+metadata:
+  name: {{ clause.clause_id | lower | replace('.', '-') }}
+  labels:
+    aegislang.io/type: prohibition
+    aegislang.io/confidence: "{{ confidence }}"
+    aegislang.io/source-doc: {{ doc_id }}
+    aegislang.io/severity: critical
+  annotations:
+    aegislang.io/source-text: |
+      {{ clause.source_text | truncate(500) }}
+
+spec:
   type: prohibition
-  rule: "MUST NOT {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}"
+  severity: critical
+  enforcement: block
 
   actor:
     entity: "{{ clause.actor.entity }}"
+{% if clause.actor.qualifiers %}
+    qualifiers:
+{% for q in clause.actor.qualifiers %}
+      - "{{ q }}"
+{% endfor %}
+{% endif %}
 {% if mappings.actor_path %}
-    mapped_to: "{{ mappings.actor_path }}"
+    mappedTo: "{{ mappings.actor_path }}"
 {% endif %}
 
-  prohibited_action:
-    operation: "{{ clause.action.verb }}"
-    enforcement: "block"
+  prohibitedAction:
+    verb: "{{ clause.action.verb }}"
+    description: "{{ clause.actor.entity }} must NOT {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}"
+{% if clause.action.modifiers %}
+    modifiers:
+{% for m in clause.action.modifiers %}
+      - "{{ m }}"
+{% endfor %}
+{% endif %}
 
 {% if clause.object %}
   object:
     entity: "{{ clause.object.entity }}"
+{% if clause.object.qualifiers %}
+    qualifiers:
+{% for q in clause.object.qualifiers %}
+      - "{{ q }}"
+{% endfor %}
+{% endif %}
 {% if mappings.object_path %}
-    mapped_to: "{{ mappings.object_path }}"
+    mappedTo: "{{ mappings.object_path }}"
 {% endif %}
 {% endif %}
 
 {% if clause.condition %}
   exception:
     condition: "{{ clause.condition.trigger }}"
+{% if clause.condition.temporal %}
+    temporal: "{{ clause.condition.temporal }}"
+{% endif %}
+    note: "Prohibition may not apply when condition is met"
 {% endif %}
 
-  severity: critical
+  compliance:
+    checkType: blocking
+    onViolation: block_and_alert
+    escalation:
+      enabled: true
+      notifyRoles:
+        - compliance_officer
+        - security_admin
+    remediation: "Immediately cease {{ clause.action.verb }} activity"
+
+  audit:
+    enabled: true
+    retentionDays: 730
+    captureDetails: true
 
   metadata:
-    source_document: "{{ doc_id }}"
-    confidence: {{ confidence }}
-    generated_by: "aegislang-compiler-v{{ version }}"
+    generatedBy: aegislang-compiler-v{{ version }}
+    templateVersion: "1.0.0"
+    traceId: {{ trace_id | default('pending') }}

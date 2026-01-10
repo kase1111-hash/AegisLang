@@ -1,185 +1,198 @@
--- AegisLang Database Initialization Script
--- This script runs automatically when the PostgreSQL container starts
+-- =============================================================================
+-- AegisLang Database Initialization
+-- =============================================================================
 
--- Enable required extensions
+-- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
--- =============================================================================
--- Documents Table
--- =============================================================================
-CREATE TABLE IF NOT EXISTS documents (
+-- -----------------------------------------------------------------------------
+-- Schema Registry Tables
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS schemas (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    doc_id VARCHAR(100) UNIQUE NOT NULL,
-    title VARCHAR(500),
-    source_type VARCHAR(50) NOT NULL,
-    file_path VARCHAR(1000),
-    content_hash VARCHAR(64),
-    metadata JSONB DEFAULT '{}',
-    ingested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX idx_documents_doc_id ON documents(doc_id);
-CREATE INDEX idx_documents_source_type ON documents(source_type);
-CREATE INDEX idx_documents_ingested_at ON documents(ingested_at);
-
--- =============================================================================
--- Clauses Table
--- =============================================================================
-CREATE TABLE IF NOT EXISTS clauses (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    clause_id VARCHAR(100) UNIQUE NOT NULL,
-    document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
-    clause_type VARCHAR(50) NOT NULL,
-    source_text TEXT NOT NULL,
-    parsed_data JSONB NOT NULL,
-    confidence DECIMAL(3,2) DEFAULT 0.00,
+    schema_id VARCHAR(255) UNIQUE NOT NULL,
+    schema_type VARCHAR(50) NOT NULL,
+    version VARCHAR(50) NOT NULL DEFAULT '1.0.0',
+    tables_json JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_clauses_clause_id ON clauses(clause_id);
-CREATE INDEX idx_clauses_document_id ON clauses(document_id);
-CREATE INDEX idx_clauses_type ON clauses(clause_type);
-CREATE INDEX idx_clauses_confidence ON clauses(confidence);
+CREATE INDEX idx_schemas_schema_id ON schemas(schema_id);
 
--- =============================================================================
--- Entity Mappings Table
--- =============================================================================
-CREATE TABLE IF NOT EXISTS entity_mappings (
+-- -----------------------------------------------------------------------------
+-- Documents Table
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS documents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    clause_id UUID REFERENCES clauses(id) ON DELETE CASCADE,
-    source_entity VARCHAR(500) NOT NULL,
-    source_role VARCHAR(50) NOT NULL,
-    target_path VARCHAR(500),
-    target_type VARCHAR(100),
-    confidence DECIMAL(3,2) DEFAULT 0.00,
-    mapping_method VARCHAR(50),
+    doc_id VARCHAR(255) UNIQUE NOT NULL,
+    source_file VARCHAR(1024),
+    document_type VARCHAR(50),
+    metadata_json JSONB NOT NULL DEFAULT '{}',
+    content_hash VARCHAR(64),
+    status VARCHAR(50) DEFAULT 'ingested',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_documents_doc_id ON documents(doc_id);
+CREATE INDEX idx_documents_status ON documents(status);
+
+-- -----------------------------------------------------------------------------
+-- Clauses Table
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS clauses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    clause_id VARCHAR(255) UNIQUE NOT NULL,
+    doc_id VARCHAR(255) NOT NULL REFERENCES documents(doc_id),
+    clause_type VARCHAR(50) NOT NULL,
+    source_text TEXT,
+    parsed_json JSONB NOT NULL DEFAULT '{}',
+    confidence DECIMAL(3,2),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_entity_mappings_clause_id ON entity_mappings(clause_id);
-CREATE INDEX idx_entity_mappings_source_entity ON entity_mappings(source_entity);
+CREATE INDEX idx_clauses_clause_id ON clauses(clause_id);
+CREATE INDEX idx_clauses_doc_id ON clauses(doc_id);
+CREATE INDEX idx_clauses_type ON clauses(clause_type);
 
--- =============================================================================
--- Compiled Artifacts Table
--- =============================================================================
+-- -----------------------------------------------------------------------------
+-- Artifacts Table
+-- -----------------------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS artifacts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    artifact_id VARCHAR(200) UNIQUE NOT NULL,
-    clause_id UUID REFERENCES clauses(id) ON DELETE CASCADE,
+    artifact_id VARCHAR(255) UNIQUE NOT NULL,
+    clause_id VARCHAR(255) NOT NULL REFERENCES clauses(clause_id),
     format VARCHAR(50) NOT NULL,
     content TEXT NOT NULL,
-    file_path VARCHAR(500),
+    file_path VARCHAR(1024),
     syntax_valid BOOLEAN DEFAULT TRUE,
-    template_used VARCHAR(100),
-    warnings JSONB DEFAULT '[]',
-    compiled_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    template_used VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_artifacts_artifact_id ON artifacts(artifact_id);
 CREATE INDEX idx_artifacts_clause_id ON artifacts(clause_id);
 CREATE INDEX idx_artifacts_format ON artifacts(format);
 
--- =============================================================================
--- Validation Traces Table
--- =============================================================================
-CREATE TABLE IF NOT EXISTS validation_traces (
+-- -----------------------------------------------------------------------------
+-- Validation Results Table
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS validation_results (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    trace_id VARCHAR(100) UNIQUE NOT NULL,
-    document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+    trace_id VARCHAR(255) UNIQUE NOT NULL,
+    clause_id VARCHAR(255) NOT NULL REFERENCES clauses(clause_id),
+    artifact_id VARCHAR(255) NOT NULL REFERENCES artifacts(artifact_id),
     validation_status VARCHAR(50) NOT NULL,
-    total_clauses INTEGER DEFAULT 0,
-    valid_clauses INTEGER DEFAULT 0,
-    warnings_count INTEGER DEFAULT 0,
-    errors_count INTEGER DEFAULT 0,
-    trace_data JSONB NOT NULL,
+    confidence_score DECIMAL(4,3),
+    checks_json JSONB NOT NULL DEFAULT '[]',
+    review_flags JSONB NOT NULL DEFAULT '[]',
     validated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_validation_traces_trace_id ON validation_traces(trace_id);
-CREATE INDEX idx_validation_traces_document_id ON validation_traces(document_id);
-CREATE INDEX idx_validation_traces_status ON validation_traces(validation_status);
+CREATE INDEX idx_validation_trace_id ON validation_results(trace_id);
+CREATE INDEX idx_validation_status ON validation_results(validation_status);
 
--- =============================================================================
--- Audit Log Table
--- =============================================================================
-CREATE TABLE IF NOT EXISTS audit_log (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    event_type VARCHAR(100) NOT NULL,
-    entity_type VARCHAR(50) NOT NULL,
-    entity_id VARCHAR(100),
-    actor VARCHAR(100),
-    action VARCHAR(100) NOT NULL,
-    details JSONB DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- -----------------------------------------------------------------------------
+-- Compliance Audit Log
+-- -----------------------------------------------------------------------------
 
-CREATE INDEX idx_audit_log_event_type ON audit_log(event_type);
-CREATE INDEX idx_audit_log_entity ON audit_log(entity_type, entity_id);
-CREATE INDEX idx_audit_log_created_at ON audit_log(created_at);
-
--- =============================================================================
--- Schema Definitions Table (for L3 mapping)
--- =============================================================================
-CREATE TABLE IF NOT EXISTS schema_definitions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    schema_name VARCHAR(200) UNIQUE NOT NULL,
-    schema_type VARCHAR(50) NOT NULL,
-    definition JSONB NOT NULL,
-    embeddings_stored BOOLEAN DEFAULT FALSE,
+CREATE TABLE IF NOT EXISTS compliance_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    clause_id VARCHAR(255) NOT NULL,
+    violation_type VARCHAR(100) NOT NULL,
+    table_name VARCHAR(255),
+    record_id VARCHAR(255),
+    actor_id VARCHAR(255),
+    violation_message TEXT,
+    severity VARCHAR(50) DEFAULT 'medium',
+    resolved BOOLEAN DEFAULT FALSE,
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    resolved_by VARCHAR(255),
+    resolution_notes TEXT,
+    occurred_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+
+    CONSTRAINT chk_severity CHECK (severity IN ('low', 'medium', 'high', 'critical'))
 );
 
-CREATE INDEX idx_schema_definitions_name ON schema_definitions(schema_name);
-CREATE INDEX idx_schema_definitions_type ON schema_definitions(schema_type);
+CREATE INDEX idx_audit_clause_id ON compliance_audit_log(clause_id);
+CREATE INDEX idx_audit_occurred_at ON compliance_audit_log(occurred_at);
+CREATE INDEX idx_audit_severity ON compliance_audit_log(severity);
+CREATE INDEX idx_audit_resolved ON compliance_audit_log(resolved);
 
--- =============================================================================
--- Functions
--- =============================================================================
+-- -----------------------------------------------------------------------------
+-- Jobs Table
+-- -----------------------------------------------------------------------------
 
--- Update timestamp trigger
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+CREATE TABLE IF NOT EXISTS jobs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    job_id VARCHAR(255) UNIQUE NOT NULL,
+    job_type VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    result_json JSONB,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE
+);
 
--- Apply update trigger to tables
-CREATE TRIGGER update_documents_updated_at
-    BEFORE UPDATE ON documents
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+CREATE INDEX idx_jobs_job_id ON jobs(job_id);
+CREATE INDEX idx_jobs_status ON jobs(status);
 
-CREATE TRIGGER update_clauses_updated_at
-    BEFORE UPDATE ON clauses
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+-- -----------------------------------------------------------------------------
+-- Views
+-- -----------------------------------------------------------------------------
 
-CREATE TRIGGER update_schema_definitions_updated_at
-    BEFORE UPDATE ON schema_definitions
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+CREATE OR REPLACE VIEW document_summary AS
+SELECT
+    d.doc_id,
+    d.document_type,
+    d.status,
+    COUNT(DISTINCT c.id) as clause_count,
+    COUNT(DISTINCT a.id) as artifact_count,
+    AVG(c.confidence) as avg_confidence,
+    d.created_at
+FROM documents d
+LEFT JOIN clauses c ON d.doc_id = c.doc_id
+LEFT JOIN artifacts a ON c.clause_id = a.clause_id
+GROUP BY d.doc_id, d.document_type, d.status, d.created_at;
 
--- =============================================================================
+CREATE OR REPLACE VIEW validation_summary AS
+SELECT
+    v.validation_status,
+    COUNT(*) as count,
+    AVG(v.confidence_score) as avg_confidence
+FROM validation_results v
+GROUP BY v.validation_status;
+
+-- -----------------------------------------------------------------------------
 -- Initial Data
--- =============================================================================
+-- -----------------------------------------------------------------------------
 
--- Insert default schema definitions for common compliance domains
-INSERT INTO schema_definitions (schema_name, schema_type, definition) VALUES
-('gdpr.data_subject', 'entity', '{"description": "Individual whose personal data is processed", "attributes": ["name", "email", "consent_status"]}'),
-('gdpr.data_controller', 'entity', '{"description": "Entity determining purposes of data processing", "attributes": ["organization_name", "dpo_contact"]}'),
-('gdpr.personal_data', 'object', '{"description": "Any information relating to an identified person", "categories": ["basic", "sensitive", "biometric"]}'),
-('hipaa.covered_entity', 'entity', '{"description": "Healthcare provider, plan, or clearinghouse", "attributes": ["entity_type", "npi_number"]}'),
-('hipaa.phi', 'object', '{"description": "Protected Health Information", "identifiers": ["name", "ssn", "medical_record"]}'),
-('sox.public_company', 'entity', '{"description": "Company subject to SOX requirements", "attributes": ["ticker_symbol", "sec_filing_status"]}'),
-('pci.cardholder_data', 'object', '{"description": "Credit card and related information", "elements": ["pan", "cvv", "expiry"]}')
-ON CONFLICT (schema_name) DO NOTHING;
+-- Insert default schema
+INSERT INTO schemas (schema_id, schema_type, version, tables_json)
+VALUES (
+    'default_kyc_schema',
+    'sql',
+    '1.0.0',
+    '[
+        {
+            "table_name": "customer",
+            "fields": [
+                {"field_name": "customer_id", "field_type": "UUID"},
+                {"field_name": "identity_verified", "field_type": "BOOLEAN"}
+            ]
+        }
+    ]'::jsonb
+)
+ON CONFLICT (schema_id) DO NOTHING;
 
 -- Grant permissions
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aegis;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aegis;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aegislang;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aegislang;

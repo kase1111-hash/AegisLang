@@ -1,52 +1,72 @@
+# AegisLang Compliance Rule - Conditional
 # Source: {{ clause.source_text | truncate(80) }}
 # Clause ID: {{ clause.clause_id }}
 # Generated: {{ timestamp }}
 # Confidence: {{ confidence }}
 
-control:
-  id: {{ clause.clause_id }}
+---
+apiVersion: aegislang.io/v1
+kind: ComplianceRule
+metadata:
+  name: {{ clause.clause_id | lower | replace('.', '-') }}
+  labels:
+    aegislang.io/type: conditional
+    aegislang.io/confidence: "{{ confidence }}"
+    aegislang.io/source-doc: {{ doc_id }}
+  annotations:
+    aegislang.io/source-text: |
+      {{ clause.source_text | truncate(500) }}
+
+spec:
   type: conditional
-  rule: "IF {{ clause.condition.trigger }} THEN {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}"
+  severity: {{ severity }}
+  enforcement: conditional
 
   actor:
     entity: "{{ clause.actor.entity }}"
+{% if clause.actor.qualifiers %}
+    qualifiers:
+{% for q in clause.actor.qualifiers %}
+      - "{{ q }}"
+{% endfor %}
+{% endif %}
 {% if mappings.actor_path %}
-    mapped_to: "{{ mappings.actor_path }}"
+    mappedTo: "{{ mappings.actor_path }}"
 {% endif %}
 
-  condition:
-    trigger: "{{ clause.condition.trigger }}"
-{% if clause.condition.temporal %}
-    temporal: "{{ clause.condition.temporal }}"
-{% endif %}
-{% if clause.condition.threshold %}
-    threshold: "{{ clause.condition.threshold }}"
-{% endif %}
-
-  then_action:
-    operation: "{{ clause.action.verb }}"
+  action:
+    verb: "{{ clause.action.verb }}"
+    description: "When condition met, {{ clause.actor.entity }} must {{ clause.action.verb }}{% if clause.object %} {{ clause.object.entity }}{% endif %}"
 {% if clause.action.modifiers %}
     modifiers:
-{% for mod in clause.action.modifiers %}
-      - "{{ mod }}"
+{% for m in clause.action.modifiers %}
+      - "{{ m }}"
 {% endfor %}
 {% endif %}
 
 {% if clause.object %}
   object:
     entity: "{{ clause.object.entity }}"
+{% if clause.object.qualifiers %}
+    qualifiers:
+{% for q in clause.object.qualifiers %}
+      - "{{ q }}"
+{% endfor %}
+{% endif %}
 {% if mappings.object_path %}
-    mapped_to: "{{ mappings.object_path }}"
+    mappedTo: "{{ mappings.object_path }}"
 {% endif %}
 {% endif %}
 
-{% if clause.else_action %}
-  else_action:
-    operation: "{{ clause.else_action.verb }}"
+  condition:
+    trigger: "{{ clause.condition.trigger if clause.condition else 'unspecified' }}"
+{% if clause.condition and clause.condition.temporal %}
+    temporal: "{{ clause.condition.temporal }}"
 {% endif %}
+    evaluationType: event_driven
 
 {% if clause.temporal_scope %}
-  temporal_scope:
+  temporalScope:
 {% if clause.temporal_scope.deadline %}
     deadline: "{{ clause.temporal_scope.deadline }}"
 {% endif %}
@@ -58,9 +78,18 @@ control:
 {% endif %}
 {% endif %}
 
-  severity: {{ severity }}
+  compliance:
+    checkType: conditional
+    onViolation: alert
+    onConditionMet: enforce
+    remediation: "Evaluate condition and ensure compliance when triggered"
+
+  audit:
+    enabled: true
+    retentionDays: 365
+    logConditionEvaluation: true
 
   metadata:
-    source_document: "{{ doc_id }}"
-    confidence: {{ confidence }}
-    generated_by: "aegislang-compiler-v{{ version }}"
+    generatedBy: aegislang-compiler-v{{ version }}
+    templateVersion: "1.0.0"
+    traceId: {{ trace_id | default('pending') }}
