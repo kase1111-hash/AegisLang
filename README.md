@@ -78,10 +78,10 @@ Follow these steps to set up and run AegisLang:
 - [x] Create project directory structure
 - [x] Create `requirements.txt` with dependencies
 - [x] Create `config.yaml` configuration file
-- [ ] Set up environment variables (`.env.example`)
+- [x] Set up environment variables (`.env.example`)
 
 ### Phase 2: Core Agents Implementation
-- [ ] Implement L1 Ingestion Layer (`aegis_ingestor.py`)
+- [x] Implement L1 Ingestion Layer (`aegis_ingestor.py`)
 - [ ] Implement L2 Parsing Layer (`policy_parser_agent.py`)
 - [ ] Implement L3 Mapping Layer (`schema_mapping_agent.py`)
 - [ ] Implement L4 Compilation Layer (`compiler_agent.py`)
