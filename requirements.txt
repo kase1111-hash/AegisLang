@@ -43,6 +43,9 @@ httpx>=0.25.0
 tenacity>=8.2.0
 structlog>=23.2.0
 
+# Error Tracking & Monitoring
+sentry-sdk>=1.38.0
+
 # NatLangChain / Agent-OS (internal ecosystem)
 # natlangchain>=0.1.0
 # agent-os-sdk>=0.1.0
