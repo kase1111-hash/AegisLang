@@ -57,5 +57,5 @@
 - [x] Finalize user documentation (README, FAQ, troubleshooting)
 - [x] Add license file
 - [x] Write changelog
-- [ ] Perform compliance review (GDPR, HIPAA, etc.)
+- [x] Perform compliance review (GDPR, HIPAA, etc.)
 - [x] Tag release & archive build artifacts
