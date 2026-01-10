@@ -83,9 +83,9 @@ Follow these steps to set up and run AegisLang:
 ### Phase 2: Core Agents Implementation
 - [x] Implement L1 Ingestion Layer (`aegis_ingestor.py`)
 - [x] Implement L2 Parsing Layer (`policy_parser_agent.py`)
-- [ ] Implement L3 Mapping Layer (`schema_mapping_agent.py`)
-- [ ] Implement L4 Compilation Layer (`compiler_agent.py`)
-- [ ] Implement L5 Validation Layer (`trace_validator_agent.py`)
+- [x] Implement L3 Mapping Layer (`schema_mapping_agent.py`)
+- [x] Implement L4 Compilation Layer (`compiler_agent.py`)
+- [x] Implement L5 Validation Layer (`trace_validator_agent.py`)
 
 ### Phase 3: Templates & Output Formats
 - [ ] Create YAML templates (`templates/yaml/`)
