@@ -53,7 +53,7 @@
 - [ ] Peer review / code audit
 - [ ] Run penetration test (internal or 3rd-party)
 - [x] Document APIs (Swagger / Postman)
-- [ ] Create architecture & data flow diagrams
+- [x] Create architecture & data flow diagrams
 - [ ] Finalize user documentation (README, FAQ, troubleshooting)
 - [x] Add license file
 - [x] Write changelog
