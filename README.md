@@ -94,8 +94,8 @@ Follow these steps to set up and run AegisLang:
 
 ### Phase 4: API & Deployment
 - [ ] Implement REST API server
-- [ ] Create Dockerfile
-- [ ] Create docker-compose.yml
+- [x] Create Dockerfile
+- [x] Create docker-compose.yml
 - [ ] Set up CI/CD pipeline
 
 ### Phase 5: Testing & Documentation

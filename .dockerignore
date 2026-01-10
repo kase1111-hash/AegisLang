@@ -1,0 +1,71 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.eggs
+*.egg-info
+*.egg
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+.tox
+.nox
+
+# Virtual environments
+.venv
+venv
+ENV
+env
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.docker
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Tests
+tests/
+pytest.ini
+setup.cfg
+tox.ini
+
+# Local development
+.env
+.env.*
+*.local
+artifacts/
+data/
+logs/
+
+# Build artifacts
+dist/
+build/
+*.whl
+
+# Misc
+*.log
+*.bak
+*.tmp

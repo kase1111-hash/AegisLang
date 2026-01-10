@@ -9,7 +9,7 @@
 - [x] Set up project structure (src/, tests/, docs/)
 - [x] Define coding conventions & style guide
 - [x] Create dependency manifest (package.json, requirements.txt)
-- [ ] Configure environment management (Docker, venv, etc.)
+- [x] Configure environment management (Docker, venv, etc.)
 - [x] Write initial README.md
 
 ## Core Implementation
@@ -40,7 +40,7 @@
 - [ ] Create automated build scripts (Makefile, .bat, shell)
 - [ ] Set up CI/CD pipeline (GitHub Actions, Jenkins, etc.)
 - [ ] Configure environment-specific settings (dev/stage/prod)
-- [ ] Build distributable packages (Dockerfile, zip, exe)
+- [x] Build distributable packages (Dockerfile, zip, exe)
 - [ ] Create installer or assembly file (.bat, setup wizard)
 - [ ] Implement semantic versioning (v1.0.0)
 - [ ] Automate deployment process

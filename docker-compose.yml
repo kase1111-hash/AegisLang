@@ -1,0 +1,143 @@
+# AegisLang Docker Compose Configuration
+# Usage:
+#   Development: docker-compose up -d
+#   Production:  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+version: "3.9"
+
+services:
+  # ==========================================================================
+  # AegisLang API Server
+  # ==========================================================================
+  aegislang:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: aegislang-api
+    ports:
+      - "8000:8000"
+    environment:
+      - AEGISLANG_ENV=development
+      - AEGISLANG_LOG_LEVEL=DEBUG
+      - AEGISLANG_TEMPLATES_DIR=/app/templates
+      - AEGISLANG_ARTIFACTS_DIR=/app/artifacts
+      - DATABASE_URL=postgresql://aegis:aegis_dev@postgres:5432/aegislang
+      - REDIS_URL=redis://redis:6379/0
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=aegis_dev
+      # LLM API Keys (set in .env file)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - ./aegislang:/app/aegislang:ro
+      - ./templates:/app/templates:ro
+      - ./artifacts:/app/artifacts
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aegislang-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ==========================================================================
+  # PostgreSQL Database
+  # ==========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: aegislang-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=aegis
+      - POSTGRES_PASSWORD=aegis_dev
+      - POSTGRES_DB=aegislang
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - aegislang-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegis -d aegislang"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Redis (Event Bus & Caching)
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: aegislang-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - aegislang-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Neo4j (Provenance Graph Database)
+  # ==========================================================================
+  neo4j:
+    image: neo4j:5-community
+    container_name: aegislang-neo4j
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    environment:
+      - NEO4J_AUTH=neo4j/aegis_dev
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    networks:
+      - aegislang-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider http://localhost:7474 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+# ==========================================================================
+# Networks
+# ==========================================================================
+networks:
+  aegislang-network:
+    driver: bridge
+    name: aegislang-network
+
+# ==========================================================================
+# Volumes
+# ==========================================================================
+volumes:
+  postgres_data:
+    name: aegislang-postgres-data
+  redis_data:
+    name: aegislang-redis-data
+  neo4j_data:
+    name: aegislang-neo4j-data
+  neo4j_logs:
+    name: aegislang-neo4j-logs
