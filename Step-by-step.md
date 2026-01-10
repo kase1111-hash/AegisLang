@@ -55,7 +55,7 @@
 - [x] Document APIs (Swagger / Postman)
 - [ ] Create architecture & data flow diagrams
 - [ ] Finalize user documentation (README, FAQ, troubleshooting)
-- [ ] Add license file
-- [ ] Write changelog
+- [x] Add license file
+- [x] Write changelog
 - [ ] Perform compliance review (GDPR, HIPAA, etc.)
 - [ ] Tag release & archive build artifacts
