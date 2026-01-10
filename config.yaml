@@ -1,0 +1,105 @@
+# AegisLang Configuration
+# Version: 1.0.0
+
+# -----------------------------------------------------------------------------
+# LLM Configuration
+# -----------------------------------------------------------------------------
+llm:
+  provider: "anthropic"                    # anthropic | openai | local
+  model: "claude-sonnet-4-5-20250929"      # Model identifier
+  api_key_env: "ANTHROPIC_API_KEY"         # Environment variable for API key
+  temperature: 0.1                         # Low temp for consistent extraction
+  max_tokens: 4096                         # Maximum response tokens
+  timeout_seconds: 60                      # Request timeout
+  retry_attempts: 3                        # Retry on transient failures
+
+# -----------------------------------------------------------------------------
+# Embedding Configuration
+# -----------------------------------------------------------------------------
+embeddings:
+  model: "text-embedding-3-large"          # Embedding model
+  dimensions: 3072                         # Vector dimensions
+  batch_size: 100                          # Batch size for bulk embedding
+
+# -----------------------------------------------------------------------------
+# Vector Store Configuration
+# -----------------------------------------------------------------------------
+vector_store:
+  provider: "pinecone"                     # pinecone | weaviate | qdrant
+  index_name: "aegislang-policies"
+  environment: "us-east-1"
+  api_key_env: "PINECONE_API_KEY"
+
+# -----------------------------------------------------------------------------
+# Database Configuration
+# -----------------------------------------------------------------------------
+database:
+  url_env: "DATABASE_URL"                  # PostgreSQL connection string
+  pool_size: 10
+  max_overflow: 20
+
+# -----------------------------------------------------------------------------
+# Graph Database Configuration (Provenance)
+# -----------------------------------------------------------------------------
+graph_store:
+  provider: "neo4j"                        # neo4j | arangodb
+  uri_env: "NEO4J_URI"
+  user_env: "NEO4J_USER"
+  password_env: "NEO4J_PASSWORD"
+
+# -----------------------------------------------------------------------------
+# Artifact Output Configuration
+# -----------------------------------------------------------------------------
+artifacts:
+  output_dir: "./artifacts/"
+  formats:
+    - yaml
+    - sql
+    - python
+  naming_pattern: "{doc_id}_{clause_id}.{format}"
+
+# -----------------------------------------------------------------------------
+# Validation Configuration
+# -----------------------------------------------------------------------------
+validation:
+  confidence_threshold: 0.85               # Minimum confidence for auto-approval
+  review_threshold: 0.70                   # Below this, flag for human review
+  block_threshold: 0.50                    # Below this, block artifact
+
+# -----------------------------------------------------------------------------
+# Chunking Configuration
+# -----------------------------------------------------------------------------
+chunking:
+  target_tokens: 768                       # Target chunk size
+  min_tokens: 256                          # Minimum chunk size
+  max_tokens: 1024                         # Maximum chunk size
+  overlap_tokens: 64                       # Overlap between chunks
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+logging:
+  level: "INFO"                            # DEBUG | INFO | WARNING | ERROR
+  format: "json"                           # json | text
+  output: "stdout"                         # stdout | file
+  file_path: "./logs/aegislang.log"
+
+# -----------------------------------------------------------------------------
+# Agent-OS Integration
+# -----------------------------------------------------------------------------
+agent_os:
+  enabled: true
+  event_bus: "redis"                       # redis | kafka | rabbitmq
+  redis_url_env: "REDIS_URL"
+  node_prefix: "aegislang"
+
+# -----------------------------------------------------------------------------
+# API Server Configuration
+# -----------------------------------------------------------------------------
+server:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 4
+  cors_origins:
+    - "https://app.aegislang.io"
+    - "http://localhost:3000"
