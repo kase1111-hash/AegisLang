@@ -99,6 +99,6 @@ Follow these steps to set up and run AegisLang:
 - [x] Set up CI/CD pipeline
 
 ### Phase 5: Testing & Documentation
-- [ ] Write unit tests
-- [ ] Write integration tests
-- [ ] Create API documentation
+- [x] Write unit tests
+- [x] Write integration tests
+- [x] Create API documentation
