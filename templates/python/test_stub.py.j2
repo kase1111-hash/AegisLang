@@ -1,0 +1,365 @@
+"""
+AegisLang Compliance Test - {{ clause.clause_id }}
+
+Source: {{ clause.source_text | truncate(70) }}
+Type: {{ clause.type }}
+Generated: {{ timestamp }}
+Confidence: {{ confidence }}
+
+This test module validates compliance with the regulatory clause.
+"""
+
+from __future__ import annotations
+
+import pytest
+from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
+from unittest.mock import MagicMock, patch
+
+
+# =============================================================================
+# Test Configuration
+# =============================================================================
+
+CLAUSE_ID = "{{ clause.clause_id }}"
+CLAUSE_TYPE = "{{ clause.type }}"
+ACTOR_ENTITY = "{{ clause.actor.entity }}"
+ACTION_VERB = "{{ clause.action.verb }}"
+{% if clause.object %}
+OBJECT_ENTITY = "{{ clause.object.entity }}"
+{% else %}
+OBJECT_ENTITY = None
+{% endif %}
+CONFIDENCE = {{ confidence }}
+SOURCE_TEXT = """{{ clause.source_text }}"""
+
+
+# =============================================================================
+# Fixtures
+# =============================================================================
+
+{% set actor_var = clause.actor.entity | lower | replace(' ', '_') | replace('-', '_') %}
+{% set action_var = clause.action.verb | lower | replace(' ', '_') | replace('-', '_') %}
+
+@pytest.fixture
+def compliant_{{ actor_var }}() -> Dict[str, Any]:
+    """
+    Create a compliant {{ clause.actor.entity }} entity.
+
+    This fixture represents an entity that meets all compliance requirements
+    for clause {{ clause.clause_id }}.
+    """
+    return {
+        "id": "test_{{ actor_var }}_compliant_001",
+        "entity_type": "{{ clause.actor.entity }}",
+{% if clause.type == 'obligation' %}
+        "{{ action_var }}_completed": True,
+        "{{ action_var }}_timestamp": datetime.utcnow(),
+{% elif clause.type == 'prohibition' %}
+        "{{ action_var }}_attempted": False,
+{% else %}
+        "{{ action_var }}_status": "compliant",
+{% endif %}
+{% if clause.object %}
+        "{{ clause.object.entity | lower | replace(' ', '_') }}": "valid_value",
+{% endif %}
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+        "metadata": {
+            "clause_id": CLAUSE_ID,
+            "compliance_verified": True,
+        }
+    }
+
+
+@pytest.fixture
+def non_compliant_{{ actor_var }}() -> Dict[str, Any]:
+    """
+    Create a non-compliant {{ clause.actor.entity }} entity.
+
+    This fixture represents an entity that violates the compliance requirements
+    for clause {{ clause.clause_id }}.
+    """
+    return {
+        "id": "test_{{ actor_var }}_violation_001",
+        "entity_type": "{{ clause.actor.entity }}",
+{% if clause.type == 'obligation' %}
+        "{{ action_var }}_completed": False,
+        "{{ action_var }}_timestamp": None,
+{% elif clause.type == 'prohibition' %}
+        "{{ action_var }}_attempted": True,
+        "{{ action_var }}_timestamp": datetime.utcnow(),
+{% else %}
+        "{{ action_var }}_status": "violation",
+{% endif %}
+{% if clause.object %}
+        "{{ clause.object.entity | lower | replace(' ', '_') }}": None,
+{% endif %}
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+        "metadata": {
+            "clause_id": CLAUSE_ID,
+            "compliance_verified": False,
+        }
+    }
+
+
+@pytest.fixture
+def compliance_checker() -> MagicMock:
+    """Mock compliance checker service."""
+    checker = MagicMock()
+    checker.clause_id = CLAUSE_ID
+    checker.check.return_value = {"passed": True, "violations": []}
+    return checker
+
+
+# =============================================================================
+# Test Cases
+# =============================================================================
+
+class Test{{ clause.clause_id | replace('-', '_') | replace('.', '_') | title }}:
+    """
+    Test suite for {{ clause.type }} clause: {{ clause.clause_id }}
+
+    {{ clause.source_text | truncate(200) }}
+    """
+
+{% if clause.type == 'obligation' %}
+    # -------------------------------------------------------------------------
+    # Obligation Tests
+    # -------------------------------------------------------------------------
+
+    def test_obligation_met_when_action_completed(
+        self,
+        compliant_{{ actor_var }}: Dict[str, Any],
+    ) -> None:
+        """
+        Test that obligation is satisfied when {{ clause.action.verb }} is performed.
+
+        Requirements:
+        - {{ clause.actor.entity }} must {{ clause.action.verb }}
+        {% if clause.object %}- Target: {{ clause.object.entity }}{% endif %}
+        """
+        entity = compliant_{{ actor_var }}
+
+        # Assert the required action was completed
+        assert entity["{{ action_var }}_completed"] is True, (
+            f"Obligation violation: {ACTOR_ENTITY} must {ACTION_VERB}"
+        )
+
+        # Assert timestamp is recorded
+        assert entity["{{ action_var }}_timestamp"] is not None, (
+            "Action completion timestamp must be recorded for audit"
+        )
+
+    def test_obligation_violated_when_action_not_completed(
+        self,
+        non_compliant_{{ actor_var }}: Dict[str, Any],
+    ) -> None:
+        """
+        Test that violation is correctly detected when {{ clause.action.verb }}
+        is NOT performed.
+        """
+        entity = non_compliant_{{ actor_var }}
+
+        # Verify violation state
+        assert entity["{{ action_var }}_completed"] is False, (
+            "Test fixture should represent non-compliant state"
+        )
+
+        # This should trigger a compliance violation
+        with pytest.raises(AssertionError):
+            assert entity["{{ action_var }}_completed"] is True
+
+    def test_obligation_with_compliance_service(
+        self,
+        compliant_{{ actor_var }}: Dict[str, Any],
+        compliance_checker: MagicMock,
+    ) -> None:
+        """Test obligation check via compliance service."""
+        result = compliance_checker.check(compliant_{{ actor_var }})
+
+        assert result["passed"] is True
+        assert len(result["violations"]) == 0
+
+{% elif clause.type == 'prohibition' %}
+    # -------------------------------------------------------------------------
+    # Prohibition Tests
+    # -------------------------------------------------------------------------
+
+    def test_prohibition_respected_when_action_not_attempted(
+        self,
+        compliant_{{ actor_var }}: Dict[str, Any],
+    ) -> None:
+        """
+        Test that prohibition is respected when {{ clause.action.verb }}
+        is NOT performed.
+
+        Requirements:
+        - {{ clause.actor.entity }} must NOT {{ clause.action.verb }}
+        {% if clause.object %}- Target: {{ clause.object.entity }}{% endif %}
+        """
+        entity = compliant_{{ actor_var }}
+
+        # Assert prohibited action was not attempted
+        assert entity["{{ action_var }}_attempted"] is False, (
+            f"Prohibition respected: {ACTOR_ENTITY} did not {ACTION_VERB}"
+        )
+
+    def test_prohibition_violated_when_action_attempted(
+        self,
+        non_compliant_{{ actor_var }}: Dict[str, Any],
+    ) -> None:
+        """
+        Test that violation is detected when prohibited action
+        {{ clause.action.verb }} IS performed.
+        """
+        entity = non_compliant_{{ actor_var }}
+
+        # Verify violation occurred
+        assert entity["{{ action_var }}_attempted"] is True, (
+            "Test fixture should represent violation state"
+        )
+
+        # Verify timestamp of violation
+        assert entity["{{ action_var }}_timestamp"] is not None, (
+            "Violation timestamp must be captured for audit"
+        )
+
+    def test_prohibition_blocks_operation(
+        self,
+        compliance_checker: MagicMock,
+    ) -> None:
+        """Test that prohibited action is blocked by compliance service."""
+        compliance_checker.check.return_value = {
+            "passed": False,
+            "violations": [{
+                "clause_id": CLAUSE_ID,
+                "type": "prohibition_violated",
+                "message": f"{ACTOR_ENTITY} attempted prohibited action: {ACTION_VERB}"
+            }]
+        }
+
+        result = compliance_checker.check({"{{ action_var }}_attempted": True})
+
+        assert result["passed"] is False
+        assert len(result["violations"]) > 0
+        assert result["violations"][0]["type"] == "prohibition_violated"
+
+{% else %}
+    # -------------------------------------------------------------------------
+    # {{ clause.type | title }} Tests
+    # -------------------------------------------------------------------------
+
+    def test_{{ clause.type }}_compliance(
+        self,
+        compliant_{{ actor_var }}: Dict[str, Any],
+    ) -> None:
+        """Test {{ clause.type }} clause compliance."""
+        entity = compliant_{{ actor_var }}
+
+        assert entity["{{ action_var }}_status"] == "compliant"
+        assert entity["metadata"]["compliance_verified"] is True
+
+    def test_{{ clause.type }}_non_compliance(
+        self,
+        non_compliant_{{ actor_var }}: Dict[str, Any],
+    ) -> None:
+        """Test {{ clause.type }} clause violation detection."""
+        entity = non_compliant_{{ actor_var }}
+
+        assert entity["{{ action_var }}_status"] == "violation"
+        assert entity["metadata"]["compliance_verified"] is False
+
+{% endif %}
+
+{% if clause.condition %}
+    # -------------------------------------------------------------------------
+    # Condition Tests
+    # -------------------------------------------------------------------------
+
+    def test_condition_trigger(self) -> None:
+        """
+        Test that rule applies when condition is met.
+
+        Condition: {{ clause.condition.trigger }}
+        """
+        # TODO: Implement condition testing
+        # The condition "{{ clause.condition.trigger }}" should trigger rule enforcement
+        pytest.skip("Condition testing requires domain-specific implementation")
+
+    def test_condition_not_met(self) -> None:
+        """Test that rule does not apply when condition is NOT met."""
+        # TODO: Implement condition testing
+        pytest.skip("Condition testing requires domain-specific implementation")
+
+{% endif %}
+
+{% if clause.temporal_scope and clause.temporal_scope.deadline %}
+    # -------------------------------------------------------------------------
+    # Deadline Tests
+    # -------------------------------------------------------------------------
+
+    def test_deadline_compliance(self) -> None:
+        """
+        Test compliance with deadline: {{ clause.temporal_scope.deadline }}
+        """
+        deadline_str = "{{ clause.temporal_scope.deadline }}"
+        # TODO: Parse and validate deadline
+        pytest.skip("Deadline testing requires temporal parsing implementation")
+
+    def test_deadline_violation(self) -> None:
+        """Test that deadline violation is detected."""
+        pytest.skip("Deadline testing requires temporal parsing implementation")
+
+{% endif %}
+
+{% if clause.temporal_scope and clause.temporal_scope.frequency %}
+    # -------------------------------------------------------------------------
+    # Frequency Tests
+    # -------------------------------------------------------------------------
+
+    def test_frequency_compliance(self) -> None:
+        """
+        Test compliance with frequency: {{ clause.temporal_scope.frequency }}
+        """
+        pytest.skip("Frequency testing requires scheduling implementation")
+
+{% endif %}
+
+
+# =============================================================================
+# Integration Tests
+# =============================================================================
+
+class Test{{ clause.clause_id | replace('-', '_') | replace('.', '_') | title }}Integration:
+    """Integration tests for clause {{ clause.clause_id }}."""
+
+    @pytest.mark.integration
+    def test_end_to_end_compliance_flow(self) -> None:
+        """Test complete compliance flow from entity creation to verification."""
+        # TODO: Implement full integration test
+        pytest.skip("Integration test requires full system setup")
+
+    @pytest.mark.integration
+    def test_audit_trail_creation(self) -> None:
+        """Test that compliance checks create proper audit trails."""
+        pytest.skip("Audit trail test requires database setup")
+
+
+# =============================================================================
+# Metadata for Test Discovery
+# =============================================================================
+
+def get_clause_metadata() -> Dict[str, Any]:
+    """Return metadata about this test module's clause."""
+    return {
+        "clause_id": CLAUSE_ID,
+        "clause_type": CLAUSE_TYPE,
+        "actor": ACTOR_ENTITY,
+        "action": ACTION_VERB,
+        "object": OBJECT_ENTITY,
+        "confidence": CONFIDENCE,
+        "source_text": SOURCE_TEXT,
+        "generated_by": "aegislang-compiler-v{{ version }}",
+    }

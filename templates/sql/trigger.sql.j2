@@ -1,0 +1,174 @@
+-- =============================================================================
+-- AegisLang SQL Trigger
+-- Source: {{ clause.source_text | truncate(70) }}
+-- Clause ID: {{ clause.clause_id }}
+-- Generated: {{ timestamp }}
+-- Confidence: {{ confidence }}
+-- =============================================================================
+
+{% set trigger_name = clause.clause_id | lower | replace('-', '_') | replace('.', '_') %}
+{% set function_name = 'enforce_' ~ trigger_name %}
+
+-- Function: {{ function_name }}
+-- Type: {{ clause.type }}
+-- Actor: {{ clause.actor.entity }}
+-- Action: {{ clause.action.verb }}
+
+{% if clause.type == 'obligation' %}
+-- OBLIGATION TRIGGER: Ensures {{ clause.actor.entity }} must {{ clause.action.verb }}
+
+CREATE OR REPLACE FUNCTION {{ function_name }}()
+RETURNS TRIGGER AS $$
+DECLARE
+    violation_message TEXT;
+BEGIN
+    -- Check if obligation is met
+    IF NOT ({{ check_condition }}) THEN
+        violation_message := format(
+            'Compliance Violation [{{ clause.clause_id }}]: %s must {{ clause.action.verb }}. Source: {{ clause.source_text | truncate(100) | replace("'", "''") }}',
+            '{{ clause.actor.entity }}'
+        );
+
+        -- Log violation to audit table if exists
+        BEGIN
+            INSERT INTO compliance_audit_log (
+                clause_id,
+                violation_type,
+                table_name,
+                record_id,
+                violation_message,
+                occurred_at
+            ) VALUES (
+                '{{ clause.clause_id }}',
+                'obligation_not_met',
+                TG_TABLE_NAME,
+                NEW.id,
+                violation_message,
+                NOW()
+            );
+        EXCEPTION WHEN undefined_table THEN
+            -- Audit table doesn't exist, continue
+            NULL;
+        END;
+
+        RAISE EXCEPTION '%', violation_message
+            USING ERRCODE = 'P0001',
+                  HINT = 'Ensure {{ clause.action.verb }} is performed before this operation';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger
+DROP TRIGGER IF EXISTS trg_{{ trigger_name }} ON {{ table_name }};
+CREATE TRIGGER trg_{{ trigger_name }}
+    BEFORE INSERT OR UPDATE ON {{ table_name }}
+    FOR EACH ROW
+    EXECUTE FUNCTION {{ function_name }}();
+
+-- Add function comment
+COMMENT ON FUNCTION {{ function_name }}()
+IS 'AegisLang Obligation Enforcement: {{ clause.source_text | truncate(200) | replace("'", "''") }}';
+
+{% elif clause.type == 'prohibition' %}
+-- PROHIBITION TRIGGER: Blocks {{ clause.actor.entity }} from {{ clause.action.verb }}
+
+CREATE OR REPLACE FUNCTION {{ function_name }}()
+RETURNS TRIGGER AS $$
+DECLARE
+    violation_message TEXT;
+BEGIN
+    -- Check if prohibited action is attempted
+    IF ({{ check_condition }}) THEN
+        violation_message := format(
+            'Compliance Violation [{{ clause.clause_id }}]: %s is PROHIBITED from {{ clause.action.verb }}. Source: {{ clause.source_text | truncate(100) | replace("'", "''") }}',
+            '{{ clause.actor.entity }}'
+        );
+
+        -- Log violation to audit table if exists
+        BEGIN
+            INSERT INTO compliance_audit_log (
+                clause_id,
+                violation_type,
+                table_name,
+                record_id,
+                violation_message,
+                occurred_at,
+                severity
+            ) VALUES (
+                '{{ clause.clause_id }}',
+                'prohibition_violated',
+                TG_TABLE_NAME,
+                COALESCE(NEW.id, OLD.id),
+                violation_message,
+                NOW(),
+                'critical'
+            );
+        EXCEPTION WHEN undefined_table THEN
+            NULL;
+        END;
+
+        RAISE EXCEPTION '%', violation_message
+            USING ERRCODE = 'P0002',
+                  HINT = 'This action is prohibited by compliance policy';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger
+DROP TRIGGER IF EXISTS trg_{{ trigger_name }} ON {{ table_name }};
+CREATE TRIGGER trg_{{ trigger_name }}
+    BEFORE INSERT OR UPDATE OR DELETE ON {{ table_name }}
+    FOR EACH ROW
+    EXECUTE FUNCTION {{ function_name }}();
+
+COMMENT ON FUNCTION {{ function_name }}()
+IS 'AegisLang Prohibition Enforcement: {{ clause.source_text | truncate(200) | replace("'", "''") }}';
+
+{% else %}
+-- {{ clause.type | upper }} TRIGGER: Conditional enforcement
+
+CREATE OR REPLACE FUNCTION {{ function_name }}()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Conditional check
+    IF ({{ check_condition }}) THEN
+        -- Log for audit
+        BEGIN
+            INSERT INTO compliance_audit_log (
+                clause_id,
+                violation_type,
+                table_name,
+                record_id,
+                violation_message,
+                occurred_at
+            ) VALUES (
+                '{{ clause.clause_id }}',
+                '{{ clause.type }}_triggered',
+                TG_TABLE_NAME,
+                NEW.id,
+                'Condition triggered for {{ clause.clause_id }}',
+                NOW()
+            );
+        EXCEPTION WHEN undefined_table THEN
+            NULL;
+        END;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_{{ trigger_name }} ON {{ table_name }};
+CREATE TRIGGER trg_{{ trigger_name }}
+    AFTER INSERT OR UPDATE ON {{ table_name }}
+    FOR EACH ROW
+    EXECUTE FUNCTION {{ function_name }}();
+
+COMMENT ON FUNCTION {{ function_name }}()
+IS 'AegisLang {{ clause.type | title }}: {{ clause.source_text | truncate(200) | replace("'", "''") }}';
+
+{% endif %}

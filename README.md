@@ -88,9 +88,9 @@ Follow these steps to set up and run AegisLang:
 - [x] Implement L5 Validation Layer (`trace_validator_agent.py`)
 
 ### Phase 3: Templates & Output Formats
-- [ ] Create YAML templates (`templates/yaml/`)
-- [ ] Create SQL templates (`templates/sql/`)
-- [ ] Create Python test templates (`templates/python/`)
+- [x] Create YAML templates (`templates/yaml/`)
+- [x] Create SQL templates (`templates/sql/`)
+- [x] Create Python test templates (`templates/python/`)
 
 ### Phase 4: API & Deployment
 - [ ] Implement REST API server

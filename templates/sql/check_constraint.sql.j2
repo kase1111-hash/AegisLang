@@ -1,0 +1,57 @@
+-- =============================================================================
+-- AegisLang SQL Constraint
+-- Source: {{ clause.source_text | truncate(70) }}
+-- Clause ID: {{ clause.clause_id }}
+-- Generated: {{ timestamp }}
+-- Confidence: {{ confidence }}
+-- =============================================================================
+
+-- Constraint Name: chk_{{ clause.clause_id | lower | replace('-', '_') | replace('.', '_') }}
+-- Type: {{ clause.type }}
+-- Actor: {{ clause.actor.entity }}
+-- Action: {{ clause.action.verb }}
+
+{% if clause.type == 'obligation' %}
+-- OBLIGATION: {{ clause.actor.entity }} must {{ clause.action.verb }}
+-- This constraint ensures the required action is performed
+
+ALTER TABLE {{ table_name }}
+ADD CONSTRAINT chk_{{ clause.clause_id | lower | replace('-', '_') | replace('.', '_') }}
+CHECK (
+    -- Obligation check: action must be completed
+    {{ check_condition }}
+);
+
+-- Add comment for documentation
+COMMENT ON CONSTRAINT chk_{{ clause.clause_id | lower | replace('-', '_') | replace('.', '_') }} ON {{ table_name }}
+IS 'AegisLang Obligation: {{ clause.source_text | truncate(200) | replace("'", "''") }}';
+
+{% elif clause.type == 'prohibition' %}
+-- PROHIBITION: {{ clause.actor.entity }} must NOT {{ clause.action.verb }}
+-- This constraint blocks the prohibited action
+
+ALTER TABLE {{ table_name }}
+ADD CONSTRAINT chk_{{ clause.clause_id | lower | replace('-', '_') | replace('.', '_') }}_prohibit
+CHECK (
+    -- Prohibition check: action must NOT occur
+    NOT ({{ check_condition }})
+);
+
+-- Add comment for documentation
+COMMENT ON CONSTRAINT chk_{{ clause.clause_id | lower | replace('-', '_') | replace('.', '_') }}_prohibit ON {{ table_name }}
+IS 'AegisLang Prohibition: {{ clause.source_text | truncate(200) | replace("'", "''") }}';
+
+{% else %}
+-- {{ clause.type | upper }}: {{ clause.actor.entity }} {{ clause.action.verb }}
+-- Conditional or permissive constraint
+
+ALTER TABLE {{ table_name }}
+ADD CONSTRAINT chk_{{ clause.clause_id | lower | replace('-', '_') | replace('.', '_') }}
+CHECK (
+    {{ check_condition }}
+);
+
+COMMENT ON CONSTRAINT chk_{{ clause.clause_id | lower | replace('-', '_') | replace('.', '_') }} ON {{ table_name }}
+IS 'AegisLang {{ clause.type | title }}: {{ clause.source_text | truncate(200) | replace("'", "''") }}';
+
+{% endif %}
