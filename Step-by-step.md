@@ -27,13 +27,13 @@
 ## Testing & Validation
 - [x] Write unit tests
 - [x] Write integration tests
-- [ ] Write system/acceptance tests
-- [ ] Add regression test suite
-- [ ] Conduct performance testing (load, stress)
+- [x] Write system/acceptance tests
+- [x] Add regression test suite
+- [x] Conduct performance testing (load, stress)
 - [ ] Perform security checks (input, encryption, tokens)
 - [ ] Perform exploit testing (SQLi, XSS, overflow)
 - [ ] Check for backdoors & unauthorized access
-- [ ] Run static analysis (lint, type check, vuln scan)
+- [x] Run static analysis (lint, type check, vuln scan)
 - [ ] Run dynamic analysis (fuzzing, runtime behavior)
 
 ## Build, Deployment & Monitoring
@@ -44,7 +44,7 @@
 - [ ] Create installer or assembly file (.bat, setup wizard)
 - [x] Implement semantic versioning (v1.0.0)
 - [ ] Automate deployment process
-- [ ] Add telemetry & metrics collection
+- [x] Add telemetry & metrics collection
 - [ ] Monitor uptime, errors, and performance
 - [ ] Add rollback & recovery mechanisms
 
@@ -53,9 +53,9 @@
 - [ ] Peer review / code audit
 - [ ] Run penetration test (internal or 3rd-party)
 - [x] Document APIs (Swagger / Postman)
-- [ ] Create architecture & data flow diagrams
-- [ ] Finalize user documentation (README, FAQ, troubleshooting)
+- [x] Create architecture & data flow diagrams
+- [x] Finalize user documentation (README, FAQ, troubleshooting)
 - [x] Add license file
 - [x] Write changelog
-- [ ] Perform compliance review (GDPR, HIPAA, etc.)
+- [x] Perform compliance review (GDPR, HIPAA, etc.)
 - [x] Tag release & archive build artifacts

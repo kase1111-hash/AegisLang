@@ -4,6 +4,7 @@
 # =============================================================================
 
 .PHONY: help install dev-install test lint format type-check security-check \
+        security-scan vuln-scan pre-commit-install pre-commit-run check-all \
         build run clean docker-build docker-up docker-down docker-logs \
         db-init db-migrate docs
 
@@ -106,12 +107,44 @@ type-check: ## Run type checking with mypy
 	mypy $(APP_NAME)/ --ignore-missing-imports
 	@echo "$(GREEN)Type checking complete!$(NC)"
 
-security-check: ## Run security checks
+security-check: ## Run security checks (bandit + safety)
 	@echo "$(BLUE)Running security checks...$(NC)"
 	$(PIP) install bandit safety 2>/dev/null || true
-	bandit -r $(APP_NAME)/ -ll
-	safety check -r requirements.txt || true
+	bandit -r $(APP_NAME)/ -c .bandit.yaml -f txt
+	safety check -r requirements.txt --short-report || true
 	@echo "$(GREEN)Security checks complete!$(NC)"
+
+security-scan: ## Run comprehensive security scan
+	@echo "$(BLUE)Running comprehensive security scan...$(NC)"
+	$(PIP) install bandit safety pip-audit 2>/dev/null || true
+	@echo "\n$(YELLOW)=== Bandit Security Scan ===$(NC)"
+	bandit -r $(APP_NAME)/ -c .bandit.yaml -f txt || true
+	@echo "\n$(YELLOW)=== Safety Dependency Check ===$(NC)"
+	safety check -r requirements.txt --full-report || true
+	@echo "\n$(YELLOW)=== pip-audit CVE Scan ===$(NC)"
+	pip-audit -r requirements.txt || true
+	@echo "$(GREEN)Security scan complete!$(NC)"
+
+vuln-scan: ## Scan dependencies for vulnerabilities
+	@echo "$(BLUE)Scanning dependencies for vulnerabilities...$(NC)"
+	$(PIP) install pip-audit safety 2>/dev/null || true
+	pip-audit -r requirements.txt
+	safety check -r requirements.txt
+	@echo "$(GREEN)Vulnerability scan complete!$(NC)"
+
+pre-commit-install: ## Install pre-commit hooks
+	@echo "$(BLUE)Installing pre-commit hooks...$(NC)"
+	$(PIP) install pre-commit 2>/dev/null || true
+	pre-commit install
+	@echo "$(GREEN)Pre-commit hooks installed!$(NC)"
+
+pre-commit-run: ## Run pre-commit on all files
+	@echo "$(BLUE)Running pre-commit hooks...$(NC)"
+	pre-commit run --all-files
+	@echo "$(GREEN)Pre-commit complete!$(NC)"
+
+check-all: lint type-check security-check test ## Run all checks (lint, type, security, test)
+	@echo "$(GREEN)All checks passed!$(NC)"
 
 quality: lint format-check type-check ## Run all code quality checks
 
