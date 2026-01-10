@@ -470,7 +470,7 @@ class SchemaMappingAgent:
         suggestions = [
             SuggestedMatch(
                 target_path=f"{m[0]}:{m[1]}",
-                confidence=m[2],
+                confidence=max(0.0, m[2]),  # Clamp negative similarities to 0
             )
             for m in semantic_matches[:3]
         ]

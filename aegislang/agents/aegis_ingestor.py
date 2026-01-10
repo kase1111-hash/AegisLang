@@ -115,11 +115,19 @@ class SemanticChunker:
 
     def __init__(self, config: ChunkingConfig | None = None):
         self.config = config or ChunkingConfig()
-        self._tokenizer = tiktoken.get_encoding("cl100k_base")
+        self._tokenizer = None
+        try:
+            self._tokenizer = tiktoken.get_encoding("cl100k_base")
+        except Exception as e:
+            logger.warning("tiktoken_fallback", reason=str(e))
+            # Will use character-based estimation
 
     def count_tokens(self, text: str) -> int:
-        """Count tokens in text using tiktoken."""
-        return len(self._tokenizer.encode(text))
+        """Count tokens in text using tiktoken or fallback estimation."""
+        if self._tokenizer:
+            return len(self._tokenizer.encode(text))
+        # Fallback: estimate ~4 chars per token (average for English)
+        return len(text) // 4
 
     def chunk_text(
         self, text: str, section_id: str
