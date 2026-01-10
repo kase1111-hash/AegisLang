@@ -67,3 +67,38 @@ AegisLang is part of a broader ecosystem of natural language and AI-native tools
 | [memory-vault](https://github.com/kase1111-hash/memory-vault) | Sovereign, offline-capable storage for cognitive artifacts |
 | [value-ledger](https://github.com/kase1111-hash/value-ledger) | Economic accounting layer for cognitive work and idea attribution |
 | [synth-mind](https://github.com/kase1111-hash/synth-mind) | Psychological AI architecture with emergent continuity and empathy |
+
+---
+
+## 🚀 Step-by-Step Setup Guide
+
+Follow these steps to set up and run AegisLang:
+
+### Phase 1: Project Foundation
+- [x] Create project directory structure
+- [x] Create `requirements.txt` with dependencies
+- [x] Create `config.yaml` configuration file
+- [ ] Set up environment variables (`.env.example`)
+
+### Phase 2: Core Agents Implementation
+- [ ] Implement L1 Ingestion Layer (`aegis_ingestor.py`)
+- [ ] Implement L2 Parsing Layer (`policy_parser_agent.py`)
+- [ ] Implement L3 Mapping Layer (`schema_mapping_agent.py`)
+- [ ] Implement L4 Compilation Layer (`compiler_agent.py`)
+- [ ] Implement L5 Validation Layer (`trace_validator_agent.py`)
+
+### Phase 3: Templates & Output Formats
+- [ ] Create YAML templates (`templates/yaml/`)
+- [ ] Create SQL templates (`templates/sql/`)
+- [ ] Create Python test templates (`templates/python/`)
+
+### Phase 4: API & Deployment
+- [ ] Implement REST API server
+- [ ] Create Dockerfile
+- [ ] Create docker-compose.yml
+- [ ] Set up CI/CD pipeline
+
+### Phase 5: Testing & Documentation
+- [ ] Write unit tests
+- [ ] Write integration tests
+- [ ] Create API documentation
