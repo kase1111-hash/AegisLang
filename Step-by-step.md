@@ -29,7 +29,7 @@
 - [x] Write integration tests
 - [x] Write system/acceptance tests
 - [x] Add regression test suite
-- [ ] Conduct performance testing (load, stress)
+- [x] Conduct performance testing (load, stress)
 - [ ] Perform security checks (input, encryption, tokens)
 - [ ] Perform exploit testing (SQLi, XSS, overflow)
 - [ ] Check for backdoors & unauthorized access
@@ -44,7 +44,7 @@
 - [ ] Create installer or assembly file (.bat, setup wizard)
 - [x] Implement semantic versioning (v1.0.0)
 - [ ] Automate deployment process
-- [ ] Add telemetry & metrics collection
+- [x] Add telemetry & metrics collection
 - [ ] Monitor uptime, errors, and performance
 - [ ] Add rollback & recovery mechanisms
 
