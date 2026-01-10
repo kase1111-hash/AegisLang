@@ -93,10 +93,10 @@ Follow these steps to set up and run AegisLang:
 - [x] Create Python test templates (`templates/python/`)
 
 ### Phase 4: API & Deployment
-- [ ] Implement REST API server
-- [ ] Create Dockerfile
-- [ ] Create docker-compose.yml
-- [ ] Set up CI/CD pipeline
+- [x] Implement REST API server
+- [x] Create Dockerfile
+- [x] Create docker-compose.yml
+- [x] Set up CI/CD pipeline
 
 ### Phase 5: Testing & Documentation
 - [ ] Write unit tests

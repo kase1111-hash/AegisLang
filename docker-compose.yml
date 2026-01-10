@@ -1,0 +1,162 @@
+# =============================================================================
+# AegisLang Docker Compose Configuration
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # AegisLang API Server
+  # ---------------------------------------------------------------------------
+  aegislang:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "8080:8080"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+      - WORKERS=4
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=postgresql://aegislang:aegislang@postgres:5432/aegislang
+      - REDIS_URL=redis://redis:6379/0
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=aegislang123
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:8080
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - aegislang-network
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database (Schema Registry)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=aegislang
+      - POSTGRES_PASSWORD=aegislang
+      - POSTGRES_DB=aegislang
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegislang -d aegislang"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - aegislang-network
+
+  # ---------------------------------------------------------------------------
+  # Redis (Event Bus & Cache)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - aegislang-network
+
+  # ---------------------------------------------------------------------------
+  # Neo4j (Provenance Graph)
+  # ---------------------------------------------------------------------------
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      - NEO4J_AUTH=neo4j/aegislang123
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7474"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - aegislang-network
+
+  # ---------------------------------------------------------------------------
+  # Development Only: Hot Reload Server
+  # ---------------------------------------------------------------------------
+  aegislang-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8081:8080"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+      - RELOAD=true
+      - WORKERS=1
+      - LOG_LEVEL=DEBUG
+      - DATABASE_URL=postgresql://aegislang:aegislang@postgres:5432/aegislang
+      - REDIS_URL=redis://redis:6379/0
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      - ./aegislang:/app/aegislang:ro
+      - ./templates:/app/templates:ro
+      - ./artifacts:/app/artifacts
+    depends_on:
+      - postgres
+      - redis
+    profiles:
+      - dev
+    networks:
+      - aegislang-network
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  aegislang-network:
+    driver: bridge
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres-data:
+  redis-data:
+  neo4j-data:
+  neo4j-logs:
