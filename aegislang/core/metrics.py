@@ -28,7 +28,6 @@ import functools
 from contextlib import contextmanager
 from typing import Callable, Optional, Any, Dict
 from dataclasses import dataclass, field
-from datetime import datetime
 import threading
 
 
@@ -525,7 +524,6 @@ def setup_metrics(app):
         setup_metrics(app)
     """
     from fastapi import Request, Response
-    from fastapi.routing import APIRoute
 
     @app.middleware("http")
     async def metrics_middleware(request: Request, call_next):
@@ -541,7 +539,7 @@ def setup_metrics(app):
         try:
             response = await call_next(request)
             status = response.status_code
-        except Exception as e:
+        except Exception:
             status = 500
             raise
         finally:

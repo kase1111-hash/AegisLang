@@ -11,14 +11,12 @@ Usage:
 """
 
 import argparse
-import asyncio
 import json
 import random
 import statistics
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Dict, List, Optional
 from concurrent.futures import ThreadPoolExecutor
 import urllib.request
@@ -185,11 +183,10 @@ def test_ingest_document(config: TestConfig) -> RequestResult:
     )
 
     success = status == 200
-    doc_id = None
     if success:
         try:
             data = json.loads(response)
-            doc_id = data.get("doc_id")
+            data.get("doc_id")
         except json.JSONDecodeError:
             pass
 

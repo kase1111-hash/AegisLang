@@ -378,7 +378,7 @@ class MockLLMClient(BaseLLMClient):
                     break
 
         # Extract basic components using simple heuristics
-        words = clause_text.split()
+        clause_text.split()
 
         # Find actor (typically first noun phrase before modal verb)
         actor = self._extract_actor(clause_text)
@@ -666,7 +666,7 @@ class PolicyParserAgent:
         all_clauses: list[ParsedClause] = []
 
         for section in ingested_doc.get("sections", []):
-            section_id = section["section_id"]
+            section["section_id"]
 
             for chunk in section.get("text_chunks", []):
                 chunk_id = chunk["chunk_id"]

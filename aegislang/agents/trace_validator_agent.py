@@ -17,10 +17,8 @@ Functional Requirements:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
-import re
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -272,7 +270,7 @@ class ValidationChecks:
         artifact: dict[str, Any],
     ) -> CheckResult:
         """Check semantic alignment between clause and artifact."""
-        source_text = parsed_clause.get("source_text", "")
+        parsed_clause.get("source_text", "")
         artifact_content = artifact.get("content", "")
 
         # Extract key terms from source
@@ -626,14 +624,12 @@ class TraceValidatorAgent:
     def build_provenance_graph(
         self,
         validation_results: ValidationResultCollection,
-        include_content: bool = False,
     ) -> ProvenanceGraph:
         """
         Build a provenance graph from validation results.
 
         Args:
             validation_results: Validated results
-            include_content: Include full content in nodes
 
         Returns:
             ProvenanceGraph for visualization/storage
