@@ -453,55 +453,72 @@ def export_metrics_json() -> Dict[str, Any]:
     return result
 
 
+def _format_prometheus_labels(labels: tuple) -> str:
+    """Format label tuple as Prometheus label string."""
+    if not labels:
+        return ""
+    return ",".join(f'{k}="{v}"' for k, v in labels)
+
+
+def _format_metric_line(name: str, label_str: str, value: float | int, suffix: str = "") -> str:
+    """Format a single Prometheus metric line."""
+    metric_name = f"{name}{suffix}" if suffix else name
+    if label_str:
+        return f"{metric_name}{{{label_str}}} {value}"
+    return f"{metric_name} {value}"
+
+
+def _export_counter_prometheus(name: str, metric: Counter, lines: list[str]) -> None:
+    """Export counter metric in Prometheus format."""
+    lines.append(f"# TYPE {name} counter")
+    for labels, value in metric.labels.items():
+        lines.append(_format_metric_line(name, _format_prometheus_labels(labels), value))
+
+
+def _export_gauge_prometheus(name: str, metric: Gauge, lines: list[str]) -> None:
+    """Export gauge metric in Prometheus format."""
+    lines.append(f"# TYPE {name} gauge")
+    for labels, value in metric.values.items():
+        lines.append(_format_metric_line(name, _format_prometheus_labels(labels), value))
+
+
+def _export_histogram_prometheus(name: str, metric: Histogram, lines: list[str]) -> None:
+    """Export histogram metric in Prometheus format."""
+    lines.append(f"# TYPE {name} histogram")
+    for labels, observations in metric.observations.items():
+        label_str = _format_prometheus_labels(labels)
+        count = len(observations)
+        total = sum(observations)
+
+        # Bucket counts
+        for bucket in metric.buckets:
+            bucket_count = sum(1 for o in observations if o <= bucket)
+            le_label = f'{label_str},le="{bucket}"' if label_str else f'le="{bucket}"'
+            lines.append(f"{name}_bucket{{{le_label}}} {bucket_count}")
+
+        # +Inf bucket and summary metrics
+        inf_label = f'{label_str},le="+Inf"' if label_str else 'le="+Inf"'
+        lines.append(f"{name}_bucket{{{inf_label}}} {count}")
+        lines.append(_format_metric_line(name, label_str, total, "_sum"))
+        lines.append(_format_metric_line(name, label_str, count, "_count"))
+
+
 def export_metrics_prometheus() -> str:
     """Export metrics in Prometheus text format."""
-    lines = []
+    lines: list[str] = []
+
+    exporters = {
+        Counter: _export_counter_prometheus,
+        Gauge: _export_gauge_prometheus,
+        Histogram: _export_histogram_prometheus,
+    }
 
     for name, metric in _registry.all_metrics().items():
         lines.append(f"# HELP {name} {metric.description}")
 
-        if isinstance(metric, Counter):
-            lines.append(f"# TYPE {name} counter")
-            for labels, value in metric.labels.items():
-                label_str = ",".join(f'{k}="{v}"' for k, v in labels) if labels else ""
-                if label_str:
-                    lines.append(f"{name}{{{label_str}}} {value}")
-                else:
-                    lines.append(f"{name} {value}")
-
-        elif isinstance(metric, Gauge):
-            lines.append(f"# TYPE {name} gauge")
-            for labels, value in metric.values.items():
-                label_str = ",".join(f'{k}="{v}"' for k, v in labels) if labels else ""
-                if label_str:
-                    lines.append(f"{name}{{{label_str}}} {value}")
-                else:
-                    lines.append(f"{name} {value}")
-
-        elif isinstance(metric, Histogram):
-            lines.append(f"# TYPE {name} histogram")
-            for labels, observations in metric.observations.items():
-                label_str = ",".join(f'{k}="{v}"' for k, v in labels) if labels else ""
-                count = len(observations)
-                total = sum(observations)
-
-                # Bucket counts
-                for bucket in metric.buckets:
-                    bucket_count = sum(1 for o in observations if o <= bucket)
-                    if label_str:
-                        lines.append(f'{name}_bucket{{{label_str},le="{bucket}"}} {bucket_count}')
-                    else:
-                        lines.append(f'{name}_bucket{{le="{bucket}"}} {bucket_count}')
-
-                # +Inf bucket
-                if label_str:
-                    lines.append(f'{name}_bucket{{{label_str},le="+Inf"}} {count}')
-                    lines.append(f"{name}_sum{{{label_str}}} {total}")
-                    lines.append(f"{name}_count{{{label_str}}} {count}")
-                else:
-                    lines.append(f'{name}_bucket{{le="+Inf"}} {count}')
-                    lines.append(f"{name}_sum {total}")
-                    lines.append(f"{name}_count {count}")
+        exporter = exporters.get(type(metric))
+        if exporter:
+            exporter(name, metric, lines)
 
         lines.append("")
 

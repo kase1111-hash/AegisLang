@@ -389,6 +389,62 @@ class TraceValidatorAgent:
             review_threshold=self.config.review_threshold,
         )
 
+    def _calculate_trace_confidence(
+        self,
+        parsed_clause: dict[str, Any] | None,
+        mapped_clause: dict[str, Any] | None,
+    ) -> float:
+        """Calculate aggregate confidence score from clause and mapping data."""
+        confidences: list[float] = []
+
+        if parsed_clause:
+            confidences.append(parsed_clause.get("confidence", 0.5))
+
+        if mapped_clause:
+            mapping_confidences = [
+                m.get("confidence", 0.5)
+                for m in mapped_clause.get("mapped_entities", [])
+            ]
+            confidences.extend(mapping_confidences)
+
+        return sum(confidences) / len(confidences) if confidences else 0.5
+
+    def _determine_validation_status(
+        self,
+        checks: list[CheckResult],
+        review_flags: list[str],
+        confidence: float,
+    ) -> tuple[ValidationStatus, list[str]]:
+        """Determine overall validation status and update flags if blocked."""
+        critical_checks = {"chain_completeness", "syntax_validity"}
+        has_critical_failure = any(
+            not c.passed and c.check_name in critical_checks for c in checks
+        )
+
+        if has_critical_failure and self.config.require_complete_chain:
+            status = ValidationStatus.FAILED
+        elif review_flags:
+            status = ValidationStatus.NEEDS_REVIEW
+        else:
+            status = ValidationStatus.PASSED
+
+        if confidence < self.config.block_threshold:
+            return ValidationStatus.FAILED, [*review_flags, "blocked_low_confidence"]
+
+        return status, review_flags
+
+    def _run_check_with_flag(
+        self,
+        check_result: CheckResult,
+        flag_name: str,
+        checks: list[CheckResult],
+        review_flags: list[str],
+    ) -> None:
+        """Append check result and add flag if check failed."""
+        checks.append(check_result)
+        if not check_result.passed:
+            review_flags.append(flag_name)
+
     def validate_artifact(
         self,
         artifact: dict[str, Any],
@@ -413,102 +469,53 @@ class TraceValidatorAgent:
         clause_id = artifact.get("clause_id", "unknown")
         artifact_id = artifact.get("artifact_id", "unknown")
 
-        logger.debug(
-            "validating_artifact",
-            clause_id=clause_id,
-            artifact_id=artifact_id,
-        )
+        logger.debug("validating_artifact", clause_id=clause_id, artifact_id=artifact_id)
 
         all_clause_ids = all_clause_ids or set()
         checks: list[CheckResult] = []
         review_flags: list[str] = []
 
         # Run validation checks
-        # 1. Chain completeness
-        chain_check = self._checks.check_chain_completeness(
-            artifact, mapped_clause, parsed_clause
+        self._run_check_with_flag(
+            self._checks.check_chain_completeness(artifact, mapped_clause, parsed_clause),
+            "incomplete_chain", checks, review_flags,
         )
-        checks.append(chain_check)
-        if not chain_check.passed:
-            review_flags.append("incomplete_chain")
+        self._run_check_with_flag(
+            self._checks.check_syntax_validity(artifact),
+            "syntax_error", checks, review_flags,
+        )
 
-        # 2. Syntax validity
-        syntax_check = self._checks.check_syntax_validity(artifact)
-        checks.append(syntax_check)
-        if not syntax_check.passed:
-            review_flags.append("syntax_error")
-
-        # 3. Compute trace confidence
-        confidences = []
-
-        # Clause extraction confidence
-        if parsed_clause:
-            clause_confidence = parsed_clause.get("confidence", 0.5)
-            confidences.append(clause_confidence)
-
-        # Mapping confidence
-        if mapped_clause:
-            mapping_confidences = [
-                m.get("confidence", 0.5)
-                for m in mapped_clause.get("mapped_entities", [])
-            ]
-            if mapping_confidences:
-                confidences.extend(mapping_confidences)
-
-        # Calculate aggregate confidence
-        if confidences:
-            avg_confidence = sum(confidences) / len(confidences)
-        else:
-            avg_confidence = 0.5
-
-        # 4. Confidence threshold check
-        confidence_check = self._checks.check_confidence_threshold(
+        # Confidence calculation and threshold check
+        avg_confidence = self._calculate_trace_confidence(parsed_clause, mapped_clause)
+        checks.append(self._checks.check_confidence_threshold(
             avg_confidence, self.config.confidence_threshold
-        )
-        checks.append(confidence_check)
+        ))
 
         if avg_confidence < self.config.review_threshold:
             review_flags.append("low_confidence")
         elif avg_confidence < self.config.confidence_threshold:
             review_flags.append("below_threshold")
 
-        # 5. Semantic alignment
+        # Optional checks based on available data
         if parsed_clause and artifact:
-            alignment_check = self._checks.check_semantic_alignment(
-                parsed_clause, artifact
+            self._run_check_with_flag(
+                self._checks.check_semantic_alignment(parsed_clause, artifact),
+                "semantic_drift", checks, review_flags,
             )
-            checks.append(alignment_check)
-            if not alignment_check.passed:
-                review_flags.append("semantic_drift")
 
-        # 6. Cross-reference integrity
         if parsed_clause:
-            ref_check = self._checks.check_cross_reference_integrity(
-                parsed_clause, all_clause_ids
+            self._run_check_with_flag(
+                self._checks.check_cross_reference_integrity(parsed_clause, all_clause_ids),
+                "invalid_references", checks, review_flags,
             )
-            checks.append(ref_check)
-            if not ref_check.passed:
-                review_flags.append("invalid_references")
 
-        # Determine overall status
-        critical_failures = [
-            c for c in checks
-            if not c.passed and c.check_name in ["chain_completeness", "syntax_validity"]
-        ]
+        # Determine status
+        status, review_flags = self._determine_validation_status(
+            checks, review_flags, avg_confidence
+        )
 
-        if critical_failures and self.config.require_complete_chain:
-            status = ValidationStatus.FAILED
-        elif review_flags:
-            status = ValidationStatus.NEEDS_REVIEW
-        else:
-            status = ValidationStatus.PASSED
-
-        # Block if below block threshold
-        if avg_confidence < self.config.block_threshold:
-            status = ValidationStatus.FAILED
-            review_flags.append("blocked_low_confidence")
-
-        # Build lineage
+        # Build result
+        trace_id = f"TRC_{uuid.uuid4().hex[:8].upper()}"
         lineage = Lineage(
             document_id=doc_id,
             section_id=self._extract_section_id(clause_id),
@@ -517,9 +524,6 @@ class TraceValidatorAgent:
             mapping_id=f"map_{clause_id}" if mapped_clause else None,
             artifact_id=artifact_id,
         )
-
-        # Generate trace ID
-        trace_id = f"TRC_{uuid.uuid4().hex[:8].upper()}"
 
         result = ValidationResult(
             trace_id=trace_id,
