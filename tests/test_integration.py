@@ -5,8 +5,6 @@ Tests the full flow from ingestion through validation.
 """
 
 import pytest
-import tempfile
-from pathlib import Path
 
 
 # =============================================================================
@@ -372,7 +370,6 @@ class TestArtifactGeneration:
             create_default_registry,
         )
         from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
-        import yaml
 
         # Run pipeline
         ingestor = AegisIngestor()

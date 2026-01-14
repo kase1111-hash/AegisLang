@@ -3,16 +3,11 @@ Unit tests for L1 Ingestion Layer (aegis_ingestor.py)
 """
 
 import pytest
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-import tempfile
 
 from aegislang.agents.aegis_ingestor import (
     AegisIngestor,
     SemanticChunker,
     ChunkingConfig,
-    TextChunk,
-    DocumentSection,
     IngestedDocument,
     MarkdownParser,
 )
@@ -288,7 +283,7 @@ class TestIngestorIntegration:
         result = ingestor.ingest(sample_markdown_file)
 
         # At least some sections should have parents (nested headers)
-        sections_with_parents = [s for s in result.sections if s.parent_section]
+        [s for s in result.sections if s.parent_section]
         # This depends on the test document structure
         # Just verify the structure is valid
         for section in result.sections:

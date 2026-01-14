@@ -400,7 +400,6 @@ class DOCXParser(BaseDocumentParser):
         """Parse DOCX document preserving structure."""
         try:
             from docx import Document
-            from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
         except ImportError as e:
             logger.error("python-docx not installed", error=str(e))
             raise ImportError(
@@ -787,7 +786,6 @@ async def publish_ingested_event(
 def main() -> None:
     """Command-line interface for document ingestion."""
     import argparse
-    import json
     import sys
 
     parser = argparse.ArgumentParser(

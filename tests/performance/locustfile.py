@@ -23,10 +23,7 @@ Usage:
     # Then open http://localhost:8089
 """
 
-import os
-import json
 import random
-from typing import Optional
 from locust import HttpUser, task, between, events
 from locust.runners import MasterRunner
 

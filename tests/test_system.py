@@ -6,12 +6,8 @@ testing through the API endpoints and validating complete user journeys.
 """
 
 import pytest
-import tempfile
-import json
 import time
 from pathlib import Path
-from typing import Generator
-from unittest.mock import patch, MagicMock
 
 
 # =============================================================================
@@ -577,7 +573,7 @@ class TestDataIntegrity:
 
     def test_document_content_preserved(self, api_client, temp_policy_file: Path):
         """Original document content is preserved accurately."""
-        original_content = temp_policy_file.read_text()
+        temp_policy_file.read_text()
 
         with open(temp_policy_file, "rb") as f:
             response = api_client.post(

@@ -7,7 +7,6 @@ identified bugs and ensure they don't recur.
 
 import pytest
 from pathlib import Path
-from typing import List, Dict, Any
 
 
 # =============================================================================
@@ -266,7 +265,6 @@ class TestCompilerRegressions:
             create_default_registry,
         )
         from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
-        import yaml
 
         # Create document with special characters
         content = """# Policy
