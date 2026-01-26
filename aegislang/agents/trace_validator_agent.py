@@ -270,7 +270,7 @@ class ValidationChecks:
         artifact: dict[str, Any],
     ) -> CheckResult:
         """Check semantic alignment between clause and artifact."""
-        parsed_clause.get("source_text", "")
+        source_text = parsed_clause.get("source_text", "")
         artifact_content = artifact.get("content", "")
 
         # Extract key terms from source

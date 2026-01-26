@@ -378,8 +378,6 @@ class MockLLMClient(BaseLLMClient):
                     break
 
         # Extract basic components using simple heuristics
-        clause_text.split()
-
         # Find actor (typically first noun phrase before modal verb)
         actor = self._extract_actor(clause_text)
 
