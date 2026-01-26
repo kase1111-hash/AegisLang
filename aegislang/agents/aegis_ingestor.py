@@ -247,6 +247,13 @@ class SemanticChunker:
 
         # Take last paragraph or portion thereof
         last_text = parts[-1]
+
+        # Fallback if tokenizer is unavailable
+        if self._tokenizer is None:
+            # Use character-based estimation (~4 chars per token)
+            char_limit = self.config.overlap_tokens * 4
+            return last_text[-char_limit:] if len(last_text) > char_limit else last_text
+
         tokens = self._tokenizer.encode(last_text)
 
         if len(tokens) <= self.config.overlap_tokens:
