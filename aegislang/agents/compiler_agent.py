@@ -225,7 +225,7 @@ CHECK (
 {% endif %}
 
 COMMENT ON CONSTRAINT chk_{{ clause.clause_id | lower | replace('-', '_') }}{% if clause.type == 'prohibition' %}_prohibit{% endif %} ON {{ table_name }}
-IS 'AegisLang: {{ clause.source_text | truncate(200) }}';
+IS 'AegisLang: {{ clause.source_text | sqlsafe(200) }}';
 '''
 
 PYTHON_TEST_TEMPLATE = '''"""
@@ -547,6 +547,16 @@ class TemplateRegistry:
         self._env = Environment(loader=BaseLoader())
         self._env.filters["truncate"] = lambda s, length: (
             s[:length] + "..." if len(s) > length else s
+        )
+        # SQL escaping filter to prevent injection in comments/strings
+        self._env.filters["sqlescape"] = lambda s: (
+            str(s).replace("'", "''").replace("\\", "\\\\") if s else ""
+        )
+        # Combined filter for SQL comments (escape and truncate)
+        self._env.filters["sqlsafe"] = lambda s, length=200: (
+            (str(s).replace("'", "''").replace("\\", "\\\\")[:length] + "...")
+            if s and len(str(s)) > length
+            else str(s).replace("'", "''").replace("\\", "\\\\") if s else ""
         )
 
     def get_template(
@@ -963,30 +973,20 @@ async def publish_compiled_event(
     redis_url: str | None = None,
 ) -> None:
     """Publish policy.compiled event to Agent-OS event bus."""
-    if redis_url is None:
-        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    from aegislang.core.events import publish_event
 
-    try:
-        import redis.asyncio as redis_async
+    success = await publish_event(
+        topic="policy.compiled",
+        data=collection.model_dump_json(),
+        redis_url=redis_url,
+    )
 
-        client = redis_async.from_url(redis_url)
-        await client.publish(
-            "policy.compiled",
-            collection.model_dump_json(),
-        )
-        await client.aclose()
-
+    if success:
         logger.info(
             "event_published",
             topic="policy.compiled",
             doc_id=collection.doc_id,
             artifact_count=len(collection.artifacts),
-        )
-    except Exception as e:
-        logger.warning(
-            "event_publish_failed",
-            topic="policy.compiled",
-            error=str(e),
         )
 
 
