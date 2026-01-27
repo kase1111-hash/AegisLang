@@ -758,30 +758,19 @@ async def publish_ingested_event(
         document: The ingested document
         redis_url: Redis connection URL
     """
-    if redis_url is None:
-        import os
-        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    from aegislang.core.events import publish_event
 
-    try:
-        import redis.asyncio as redis_async
+    success = await publish_event(
+        topic="policy.ingested",
+        data=document.model_dump_json(),
+        redis_url=redis_url,
+    )
 
-        client = redis_async.from_url(redis_url)
-        await client.publish(
-            "policy.ingested",
-            document.model_dump_json(),
-        )
-        await client.aclose()
-
+    if success:
         logger.info(
             "event_published",
             topic="policy.ingested",
             doc_id=document.doc_id,
-        )
-    except Exception as e:
-        logger.warning(
-            "event_publish_failed",
-            topic="policy.ingested",
-            error=str(e),
         )
 
 

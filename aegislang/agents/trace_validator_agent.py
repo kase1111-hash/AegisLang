@@ -867,30 +867,20 @@ async def publish_validated_event(
     redis_url: str | None = None,
 ) -> None:
     """Publish policy.validated event to Agent-OS event bus."""
-    if redis_url is None:
-        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    from aegislang.core.events import publish_event
 
-    try:
-        import redis.asyncio as redis_async
+    success = await publish_event(
+        topic="policy.validated",
+        data=collection.model_dump_json(),
+        redis_url=redis_url,
+    )
 
-        client = redis_async.from_url(redis_url)
-        await client.publish(
-            "policy.validated",
-            collection.model_dump_json(),
-        )
-        await client.aclose()
-
+    if success:
         logger.info(
             "event_published",
             topic="policy.validated",
             doc_id=collection.doc_id,
             result_count=len(collection.results),
-        )
-    except Exception as e:
-        logger.warning(
-            "event_publish_failed",
-            topic="policy.validated",
-            error=str(e),
         )
 
 

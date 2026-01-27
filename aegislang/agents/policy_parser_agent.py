@@ -364,17 +364,24 @@ class MockLLMClient(BaseLLMClient):
         """Parse clause using pattern matching (for testing)."""
         clause_lower = clause_text.lower().strip()
 
-        # Detect clause type
+        # Detect clause type and track if we found a pattern
         clause_type = ClauseType.OBLIGATION  # default
+        pattern_found = False
+        pattern_specificity = 0.0
 
         # Check for sentence-initial conditionals first
         if clause_lower.startswith("if ") or clause_lower.startswith("when "):
             clause_type = ClauseType.CONDITIONAL
+            pattern_found = True
+            pattern_specificity = 0.9  # High confidence for sentence-initial
         else:
-            # Check patterns in priority order
-            for pattern, ctype in self._clause_patterns:
+            # Check patterns in priority order (earlier = more specific)
+            for idx, (pattern, ctype) in enumerate(self._clause_patterns):
                 if pattern in clause_lower:
                     clause_type = ctype
+                    pattern_found = True
+                    # More specific patterns (lower index) get higher confidence
+                    pattern_specificity = 0.9 - (idx * 0.03)
                     break
 
         # Extract basic components using simple heuristics
@@ -393,6 +400,16 @@ class MockLLMClient(BaseLLMClient):
         # Check for temporal scope
         temporal = self._extract_temporal(clause_text)
 
+        # Calculate confidence based on extraction quality
+        confidence = self._calculate_confidence(
+            pattern_found=pattern_found,
+            pattern_specificity=pattern_specificity,
+            actor=actor,
+            action=action,
+            obj=obj,
+            clause_text=clause_text,
+        )
+
         return {
             "type": clause_type.value,
             "actor": {"entity": actor, "qualifiers": []},
@@ -401,8 +418,52 @@ class MockLLMClient(BaseLLMClient):
             "condition": condition,
             "temporal_scope": temporal,
             "cross_references": [],
-            "confidence": 0.75,
+            "confidence": confidence,
         }
+
+    def _calculate_confidence(
+        self,
+        pattern_found: bool,
+        pattern_specificity: float,
+        actor: str,
+        action: str,
+        obj: str | None,
+        clause_text: str,
+    ) -> float:
+        """Calculate confidence score based on extraction quality."""
+        score = 0.5  # Base score
+
+        # Pattern matching contributes to confidence
+        if pattern_found:
+            score += 0.2 * pattern_specificity
+
+        # Actor extraction quality
+        if actor and actor != "unspecified entity":
+            score += 0.1
+            # Bonus for specific entity types
+            if any(term in actor.lower() for term in ["bank", "institution", "customer", "employee"]):
+                score += 0.05
+
+        # Action extraction quality
+        if action and action != "comply":
+            score += 0.1
+            # Bonus for specific action verbs
+            if any(verb in action.lower() for verb in ["verify", "report", "maintain", "submit"]):
+                score += 0.05
+
+        # Object presence
+        if obj:
+            score += 0.05
+
+        # Penalty for very short or very long clauses (likely parsing issues)
+        word_count = len(clause_text.split())
+        if word_count < 5:
+            score -= 0.1
+        elif word_count > 100:
+            score -= 0.05
+
+        # Clamp to valid range
+        return round(max(0.1, min(0.95, score)), 2)
 
     def _extract_actor(self, text: str) -> str:
         """Extract actor from text."""
@@ -664,8 +725,6 @@ class PolicyParserAgent:
         all_clauses: list[ParsedClause] = []
 
         for section in ingested_doc.get("sections", []):
-            section["section_id"]
-
             for chunk in section.get("text_chunks", []):
                 chunk_id = chunk["chunk_id"]
                 chunk_text = chunk["text"]
@@ -757,30 +816,20 @@ async def publish_parsed_event(
         collection: The parsed clause collection
         redis_url: Redis connection URL
     """
-    if redis_url is None:
-        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    from aegislang.core.events import publish_event
 
-    try:
-        import redis.asyncio as redis_async
+    success = await publish_event(
+        topic="policy.parsed",
+        data=collection.model_dump_json(),
+        redis_url=redis_url,
+    )
 
-        client = redis_async.from_url(redis_url)
-        await client.publish(
-            "policy.parsed",
-            collection.model_dump_json(),
-        )
-        await client.aclose()
-
+    if success:
         logger.info(
             "event_published",
             topic="policy.parsed",
             doc_id=collection.doc_id,
             clause_count=len(collection.clauses),
-        )
-    except Exception as e:
-        logger.warning(
-            "event_publish_failed",
-            topic="policy.parsed",
-            error=str(e),
         )
 
 

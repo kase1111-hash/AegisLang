@@ -60,20 +60,40 @@ class Counter:
 
 @dataclass
 class Histogram:
-    """Thread-safe histogram metric."""
+    """
+    Thread-safe histogram metric with bounded memory.
+
+    Uses a sliding window to prevent unbounded memory growth.
+    When max_observations is reached, oldest observations are discarded.
+    Cumulative statistics (total_count, total_sum) are maintained for accuracy.
+    """
     name: str
     description: str
     buckets: tuple = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
+    max_observations: int = 10000  # Maximum observations to keep per label combination
     observations: Dict[tuple, list] = field(default_factory=dict)
+    _cumulative_count: Dict[tuple, int] = field(default_factory=dict)
+    _cumulative_sum: Dict[tuple, float] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def observe(self, value: float, **label_values):
-        """Record an observation."""
+        """Record an observation with bounded memory."""
         key = tuple(sorted(label_values.items()))
         with self._lock:
             if key not in self.observations:
                 self.observations[key] = []
+                self._cumulative_count[key] = 0
+                self._cumulative_sum[key] = 0.0
+
             self.observations[key].append(value)
+            self._cumulative_count[key] += 1
+            self._cumulative_sum[key] += value
+
+            # Enforce memory bound - remove oldest observations
+            if len(self.observations[key]) > self.max_observations:
+                # Remove oldest 10% when limit is reached
+                trim_count = self.max_observations // 10
+                self.observations[key] = self.observations[key][trim_count:]
 
     def get_stats(self, **label_values) -> Dict[str, float]:
         """Get statistics for the histogram."""
@@ -84,17 +104,22 @@ class Histogram:
                 return {"count": 0, "sum": 0, "avg": 0, "p50": 0, "p95": 0, "p99": 0}
 
             sorted_values = sorted(values)
-            count = len(values)
+            window_count = len(values)
+
+            # Use cumulative stats for count/sum/avg (more accurate)
+            total_count = self._cumulative_count.get(key, window_count)
+            total_sum = self._cumulative_sum.get(key, sum(values))
 
             return {
-                "count": count,
-                "sum": sum(values),
-                "avg": sum(values) / count,
+                "count": total_count,
+                "sum": total_sum,
+                "avg": total_sum / total_count if total_count > 0 else 0,
                 "min": min(values),
                 "max": max(values),
-                "p50": sorted_values[int(count * 0.50)],
-                "p95": sorted_values[int(count * 0.95)] if count >= 20 else sorted_values[-1],
-                "p99": sorted_values[int(count * 0.99)] if count >= 100 else sorted_values[-1],
+                "p50": sorted_values[int(window_count * 0.50)],
+                "p95": sorted_values[int(window_count * 0.95)] if window_count >= 20 else sorted_values[-1],
+                "p99": sorted_values[int(window_count * 0.99)] if window_count >= 100 else sorted_values[-1],
+                "window_size": window_count,
             }
 
 

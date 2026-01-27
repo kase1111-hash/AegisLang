@@ -1,6 +1,25 @@
 # AegisLang Configuration
 # Version: 1.0.0
-
+#
+# IMPORTANT: This is a REFERENCE configuration file.
+# The API server currently uses ENVIRONMENT VARIABLES for configuration.
+# This file documents available settings but is NOT automatically loaded.
+#
+# To configure AegisLang, set the following environment variables:
+#   - ANTHROPIC_API_KEY / OPENAI_API_KEY: LLM API credentials
+#   - DATABASE_URL: PostgreSQL connection string
+#   - REDIS_URL: Redis connection for event bus
+#   - NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD: Graph database credentials
+#   - PINECONE_API_KEY: Vector store credentials
+#   - AEGISLANG_API_KEYS: Comma-separated API keys for authentication
+#   - AEGISLANG_DISABLE_AUTH: Set to "true" to disable authentication (dev only)
+#   - AEGISLANG_RATE_LIMIT_MINUTE: Requests per minute limit (default: 60)
+#   - AEGISLANG_RATE_LIMIT_HOUR: Requests per hour limit (default: 1000)
+#   - AEGISLANG_MAX_FILE_SIZE: Max upload size in bytes (default: 52428800)
+#   - HOST, PORT, WORKERS: Server configuration
+#
+# Future versions will add automatic config file loading.
+#
 # -----------------------------------------------------------------------------
 # LLM Configuration
 # -----------------------------------------------------------------------------

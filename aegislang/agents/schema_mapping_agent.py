@@ -390,6 +390,9 @@ class SchemaMappingAgent:
             target_path=target_path,
         )
 
+    # Maximum entity length for mapping (prevents excessive embedding costs/memory)
+    MAX_ENTITY_LENGTH = 500
+
     def map_entity(
         self,
         entity: str,
@@ -407,6 +410,25 @@ class SchemaMappingAgent:
         Returns:
             Tuple of (mapping, unmapped) - one will be None
         """
+        # Validate and truncate entity input to prevent resource abuse
+        if not entity or not entity.strip():
+            unmapped = UnmappedEntity(
+                entity=entity or "",
+                reason="Empty entity provided",
+                suggested_matches=[],
+            )
+            return None, unmapped
+
+        # Truncate overly long entities
+        original_length = len(entity)
+        if original_length > self.MAX_ENTITY_LENGTH:
+            entity = entity[:self.MAX_ENTITY_LENGTH].rsplit(" ", 1)[0]  # Truncate at word boundary
+            logger.warning(
+                "entity_truncated",
+                original_length=original_length,
+                truncated_length=len(entity),
+            )
+
         entity_lower = entity.lower()
 
         # Check manual overrides first
@@ -844,30 +866,20 @@ async def publish_mapped_event(
     redis_url: str | None = None,
 ) -> None:
     """Publish policy.mapped event to Agent-OS event bus."""
-    if redis_url is None:
-        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    from aegislang.core.events import publish_event
 
-    try:
-        import redis.asyncio as redis_async
+    success = await publish_event(
+        topic="policy.mapped",
+        data=collection.model_dump_json(),
+        redis_url=redis_url,
+    )
 
-        client = redis_async.from_url(redis_url)
-        await client.publish(
-            "policy.mapped",
-            collection.model_dump_json(),
-        )
-        await client.aclose()
-
+    if success:
         logger.info(
             "event_published",
             topic="policy.mapped",
             doc_id=collection.doc_id,
             clause_count=len(collection.clauses),
-        )
-    except Exception as e:
-        logger.warning(
-            "event_publish_failed",
-            topic="policy.mapped",
-            error=str(e),
         )
 
 

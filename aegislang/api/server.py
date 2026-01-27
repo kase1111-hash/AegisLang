@@ -9,22 +9,140 @@ Base URL: /api/v1
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
+import secrets
 import tempfile
+import time
 import uuid
+from collections import defaultdict
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
 import structlog
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, BackgroundTasks, Depends
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, BackgroundTasks, Depends, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 
 logger = structlog.get_logger(__name__)
+
+
+# =============================================================================
+# Security: API Key Authentication
+# =============================================================================
+
+API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+# API keys can be set via environment variable (comma-separated)
+# Example: AEGISLANG_API_KEYS="key1,key2,key3"
+def get_valid_api_keys() -> set[str]:
+    """Get valid API keys from environment."""
+    keys_env = os.environ.get("AEGISLANG_API_KEYS", "")
+    if not keys_env:
+        # If no keys configured, check if auth is disabled
+        if os.environ.get("AEGISLANG_DISABLE_AUTH", "").lower() == "true":
+            return set()
+        # Generate a random key for development and log it
+        dev_key = secrets.token_urlsafe(32)
+        logger.warning(
+            "no_api_keys_configured",
+            message="No API keys configured. Set AEGISLANG_API_KEYS or AEGISLANG_DISABLE_AUTH=true",
+            development_key=dev_key,
+        )
+        return {dev_key}
+    return {k.strip() for k in keys_env.split(",") if k.strip()}
+
+
+async def verify_api_key(api_key: str | None = Security(API_KEY_HEADER)) -> str:
+    """Verify API key and return it if valid."""
+    valid_keys = get_valid_api_keys()
+
+    # If auth is disabled (empty keys set), allow all requests
+    if not valid_keys:
+        return "anonymous"
+
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing API key. Provide X-API-Key header.",
+        )
+
+    if api_key not in valid_keys:
+        logger.warning("invalid_api_key_attempt", key_prefix=api_key[:8] if api_key else "none")
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid API key.",
+        )
+
+    return api_key
+
+
+# =============================================================================
+# Security: Rate Limiting
+# =============================================================================
+
+class RateLimiter:
+    """Simple in-memory rate limiter."""
+
+    def __init__(
+        self,
+        requests_per_minute: int = 60,
+        requests_per_hour: int = 1000,
+    ):
+        self.requests_per_minute = requests_per_minute
+        self.requests_per_hour = requests_per_hour
+        self._minute_counts: dict[str, list[float]] = defaultdict(list)
+        self._hour_counts: dict[str, list[float]] = defaultdict(list)
+
+    def _cleanup_old_entries(self, entries: list[float], max_age: float) -> list[float]:
+        """Remove entries older than max_age seconds."""
+        cutoff = time.time() - max_age
+        return [t for t in entries if t > cutoff]
+
+    def is_allowed(self, client_id: str) -> tuple[bool, str | None]:
+        """Check if request is allowed for client."""
+        now = time.time()
+
+        # Clean up and check minute limit
+        self._minute_counts[client_id] = self._cleanup_old_entries(
+            self._minute_counts[client_id], 60
+        )
+        if len(self._minute_counts[client_id]) >= self.requests_per_minute:
+            return False, f"Rate limit exceeded: {self.requests_per_minute}/minute"
+
+        # Clean up and check hour limit
+        self._hour_counts[client_id] = self._cleanup_old_entries(
+            self._hour_counts[client_id], 3600
+        )
+        if len(self._hour_counts[client_id]) >= self.requests_per_hour:
+            return False, f"Rate limit exceeded: {self.requests_per_hour}/hour"
+
+        # Record request
+        self._minute_counts[client_id].append(now)
+        self._hour_counts[client_id].append(now)
+
+        return True, None
+
+
+# Global rate limiter instance
+_rate_limiter = RateLimiter(
+    requests_per_minute=int(os.environ.get("AEGISLANG_RATE_LIMIT_MINUTE", "60")),
+    requests_per_hour=int(os.environ.get("AEGISLANG_RATE_LIMIT_HOUR", "1000")),
+)
+
+
+async def check_rate_limit(api_key: str = Depends(verify_api_key)) -> str:
+    """Check rate limit for the API key."""
+    allowed, error = _rate_limiter.is_allowed(api_key)
+    if not allowed:
+        raise HTTPException(status_code=429, detail=error)
+    return api_key
 
 # =============================================================================
 # Application Setup
@@ -119,7 +237,14 @@ class SchemaRegistryRequest(BaseModel):
 # =============================================================================
 
 class Storage:
-    """Simple in-memory storage for jobs and documents."""
+    """
+    Simple in-memory storage for jobs and documents.
+
+    WARNING: This storage is ephemeral. All data is lost on server restart.
+    For production use, implement a persistent storage backend (PostgreSQL, etc.)
+    """
+
+    _warned: bool = False
 
     def __init__(self):
         self.jobs: dict[str, dict[str, Any]] = {}
@@ -127,6 +252,15 @@ class Storage:
         self.clauses: dict[str, list[dict[str, Any]]] = {}
         self.artifacts: dict[str, list[dict[str, Any]]] = {}
         self.schemas: dict[str, dict[str, Any]] = {}
+
+        # Log warning once per process
+        if not Storage._warned:
+            logger.warning(
+                "in_memory_storage_active",
+                message="Using in-memory storage. Data will be lost on restart. "
+                        "Set AEGISLANG_STORAGE_BACKEND for production use.",
+            )
+            Storage._warned = True
 
     def create_job(self, job_type: str) -> str:
         """Create a new job and return its ID."""
@@ -170,6 +304,45 @@ def get_storage() -> Storage:
 # Background Tasks
 # =============================================================================
 
+def secure_delete_file(file_path: Path) -> None:
+    """
+    Securely delete a file by overwriting with random data before unlinking.
+
+    For sensitive policy documents, this provides basic protection against
+    simple file recovery techniques.
+    """
+    try:
+        if not file_path.exists():
+            return
+
+        # Get file size
+        file_size = file_path.stat().st_size
+
+        # Overwrite with random data (single pass)
+        with open(file_path, "wb") as f:
+            # Write in chunks to handle large files
+            chunk_size = 8192
+            remaining = file_size
+            while remaining > 0:
+                write_size = min(chunk_size, remaining)
+                f.write(os.urandom(write_size))
+                remaining -= write_size
+            f.flush()
+            os.fsync(f.fileno())
+
+        # Now unlink the file
+        file_path.unlink()
+
+    except Exception as e:
+        logger.warning("secure_delete_failed", path=str(file_path), error=str(e))
+        # Fall back to simple deletion
+        try:
+            if file_path.exists():
+                file_path.unlink()
+        except Exception:
+            pass
+
+
 async def process_ingestion(
     job_id: str,
     file_path: Path,
@@ -204,9 +377,8 @@ async def process_ingestion(
         storage.update_job(job_id, JobStatus.FAILED, error=str(e))
 
     finally:
-        # Cleanup temp file
-        if file_path.exists():
-            file_path.unlink()
+        # Securely cleanup temp file
+        secure_delete_file(file_path)
 
 
 async def process_compilation(
@@ -306,46 +478,96 @@ async def health_check() -> HealthResponse:
     )
 
 
+def validate_file_extension(filename: str | None) -> str:
+    """
+    Validate and extract file extension securely.
+
+    Prevents path traversal and double extension attacks.
+    Returns the validated extension or raises HTTPException.
+    """
+    allowed_extensions = {".pdf", ".docx", ".md", ".markdown", ".html", ".htm"}
+
+    if not filename:
+        raise HTTPException(status_code=400, detail="Filename is required")
+
+    # Sanitize filename - remove any path components
+    safe_filename = Path(filename).name
+
+    # Check for path traversal attempts
+    if ".." in safe_filename or "/" in filename or "\\" in filename:
+        logger.warning("path_traversal_attempt", filename=filename)
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    # Extract extension (only the last one, lowercased)
+    # This prevents double extension attacks like "file.pdf.exe"
+    ext = Path(safe_filename).suffix.lower()
+
+    # Validate extension exists and starts with a dot
+    if not ext or not ext.startswith("."):
+        raise HTTPException(
+            status_code=400,
+            detail=f"File must have an extension. Allowed: {allowed_extensions}",
+        )
+
+    if ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {ext}. Allowed: {allowed_extensions}",
+        )
+
+    return ext
+
+
 @app.post("/api/v1/ingest", response_model=IngestResponse, tags=["Ingestion"])
 async def ingest_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     metadata: str = Form(default="{}"),
     storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
 ) -> IngestResponse:
     """
     Upload and parse a new policy document.
 
     Accepts PDF, DOCX, Markdown, or HTML files.
+    Requires X-API-Key header for authentication.
     """
-    # Validate file type
-    allowed_extensions = {".pdf", ".docx", ".md", ".markdown", ".html", ".htm"}
-    file_ext = Path(file.filename or "").suffix.lower()
+    # Validate file type with security checks
+    file_ext = validate_file_extension(file.filename)
 
-    if file_ext not in allowed_extensions:
+    # Validate file size (max 50MB)
+    max_size = int(os.environ.get("AEGISLANG_MAX_FILE_SIZE", str(50 * 1024 * 1024)))
+    content = await file.read()
+    if len(content) > max_size:
         raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type: {file_ext}. Allowed: {allowed_extensions}",
+            status_code=413,
+            detail=f"File too large. Maximum size: {max_size // (1024*1024)}MB",
         )
 
     # Parse metadata
     try:
         meta_dict = json.loads(metadata)
+        # Validate metadata is a dict (prevent injection)
+        if not isinstance(meta_dict, dict):
+            meta_dict = {}
     except json.JSONDecodeError:
         meta_dict = {}
 
-    # Save file to temp location
+    # Save file to temp location with secure naming
     temp_dir = Path(tempfile.gettempdir()) / "aegislang"
-    temp_dir.mkdir(exist_ok=True)
+    temp_dir.mkdir(exist_ok=True, mode=0o700)  # Restrictive permissions
 
+    # Use only UUID for temp filename - no user input
     temp_path = temp_dir / f"{uuid.uuid4().hex}{file_ext}"
-    content = await file.read()
     temp_path.write_bytes(content)
 
     # Create job
     job_id = storage.create_job("ing")
-    doc_id = Path(file.filename or "document").stem.upper().replace(" ", "_")
-    doc_id = f"{doc_id}_{uuid.uuid4().hex[:6].upper()}"
+
+    # Sanitize document ID from filename
+    safe_stem = re.sub(r"[^A-Za-z0-9_-]", "_", Path(file.filename or "document").stem)
+    safe_stem = safe_stem[:50].upper()  # Limit length
+    doc_id = f"{safe_stem}_{uuid.uuid4().hex[:6].upper()}"
 
     # Schedule background task
     background_tasks.add_task(
@@ -368,8 +590,9 @@ async def ingest_document(
 async def get_document(
     doc_id: str,
     storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
 ) -> dict[str, Any]:
-    """Retrieve document metadata and processing status."""
+    """Retrieve document metadata and processing status. Requires X-API-Key header."""
     if doc_id not in storage.documents:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -386,8 +609,9 @@ async def get_document(
 async def get_clauses(
     doc_id: str,
     storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
 ) -> dict[str, Any]:
-    """List all parsed clauses for a document."""
+    """List all parsed clauses for a document. Requires X-API-Key header."""
     if doc_id not in storage.clauses:
         raise HTTPException(status_code=404, detail="Clauses not found for document")
 
@@ -403,8 +627,9 @@ async def get_clauses(
 async def get_rule(
     clause_id: str,
     storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
 ) -> dict[str, Any]:
-    """Retrieve generated rule artifact for a clause."""
+    """Retrieve generated rule artifact for a clause. Requires X-API-Key header."""
     # Search through all artifacts
     for doc_id, artifacts in storage.artifacts.items():
         for artifact in artifacts:
@@ -423,8 +648,9 @@ async def compile_document(
     request: CompileRequest,
     background_tasks: BackgroundTasks,
     storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
 ) -> dict[str, Any]:
-    """Trigger full compilation pipeline for a document."""
+    """Trigger full compilation pipeline for a document. Requires X-API-Key header."""
     if request.doc_id not in storage.documents:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -454,8 +680,9 @@ async def compile_document(
 async def get_job_status(
     job_id: str,
     storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
 ) -> JobResponse:
-    """Check async job status."""
+    """Check async job status. Requires X-API-Key header."""
     if job_id not in storage.jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -467,8 +694,9 @@ async def get_job_status(
 async def register_schema(
     request: SchemaRegistryRequest,
     storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
 ) -> dict[str, Any]:
-    """Register or update a target schema."""
+    """Register or update a target schema. Requires X-API-Key header."""
     storage.schemas[request.schema_id] = {
         "schema_id": request.schema_id,
         "schema_type": request.schema_type,
@@ -487,8 +715,9 @@ async def register_schema(
 @app.get("/api/v1/schemas", tags=["Schemas"])
 async def list_schemas(
     storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
 ) -> dict[str, Any]:
-    """List all registered schemas."""
+    """List all registered schemas. Requires X-API-Key header."""
     return {
         "schemas": list(storage.schemas.values()),
         "count": len(storage.schemas),
@@ -499,8 +728,9 @@ async def list_schemas(
 async def get_schema(
     schema_id: str,
     storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
 ) -> dict[str, Any]:
-    """Get a specific schema."""
+    """Get a specific schema. Requires X-API-Key header."""
     if schema_id not in storage.schemas:
         raise HTTPException(status_code=404, detail="Schema not found")
 
