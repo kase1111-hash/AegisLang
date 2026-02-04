@@ -1,5 +1,22 @@
 """AegisLang Core Module."""
 
+from aegislang.core.errors import (
+    AegisLangError,
+    AuthenticationError,
+    AuthorizationError,
+    DocumentNotFoundError,
+    ErrorHandlingContext,
+    ErrorResponse,
+    JobNotFoundError,
+    ProcessingError,
+    RateLimitError,
+    SchemaNotFoundError,
+    ValidationError,
+    create_error_response,
+    is_production,
+    register_error_handlers,
+    sanitize_error_message,
+)
 from aegislang.core.logging import (
     ErrorContext,
     LogLevel,
@@ -14,6 +31,7 @@ from aegislang.core.logging import (
 )
 
 __all__ = [
+    # Logging
     "setup_logging",
     "get_logger",
     "log_error",
@@ -24,4 +42,20 @@ __all__ = [
     "SentryIntegration",
     "ErrorContext",
     "LogLevel",
+    # Error handling
+    "AegisLangError",
+    "DocumentNotFoundError",
+    "JobNotFoundError",
+    "SchemaNotFoundError",
+    "ValidationError",
+    "ProcessingError",
+    "RateLimitError",
+    "AuthenticationError",
+    "AuthorizationError",
+    "ErrorResponse",
+    "ErrorHandlingContext",
+    "register_error_handlers",
+    "create_error_response",
+    "sanitize_error_message",
+    "is_production",
 ]

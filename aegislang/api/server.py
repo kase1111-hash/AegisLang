@@ -10,11 +10,13 @@ Base URL: /api/v1
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import re
 import secrets
 import tempfile
+import threading
 import time
 import uuid
 from collections import defaultdict
@@ -59,8 +61,13 @@ def get_valid_api_keys() -> set[str]:
     return {k.strip() for k in keys_env.split(",") if k.strip()}
 
 
+def _constant_time_compare(val1: str, val2: str) -> bool:
+    """Perform constant-time string comparison to prevent timing attacks."""
+    return hmac.compare_digest(val1.encode("utf-8"), val2.encode("utf-8"))
+
+
 async def verify_api_key(api_key: str | None = Security(API_KEY_HEADER)) -> str:
-    """Verify API key and return it if valid."""
+    """Verify API key and return it if valid (uses constant-time comparison)."""
     valid_keys = get_valid_api_keys()
 
     # If auth is disabled (empty keys set), allow all requests
@@ -73,7 +80,14 @@ async def verify_api_key(api_key: str | None = Security(API_KEY_HEADER)) -> str:
             detail="Missing API key. Provide X-API-Key header.",
         )
 
-    if api_key not in valid_keys:
+    # Use constant-time comparison to prevent timing attacks
+    key_valid = False
+    for valid_key in valid_keys:
+        if _constant_time_compare(api_key, valid_key):
+            key_valid = True
+            # Don't break early - continue checking all keys for constant time
+
+    if not key_valid:
         logger.warning("invalid_api_key_attempt", key_prefix=api_key[:8] if api_key else "none")
         raise HTTPException(
             status_code=403,
@@ -246,12 +260,26 @@ class Storage:
 
     _warned: bool = False
 
-    def __init__(self):
+    # Default job TTL: 24 hours (in seconds)
+    DEFAULT_JOB_TTL = 24 * 60 * 60
+    # Cleanup interval: 1 hour (in seconds)
+    CLEANUP_INTERVAL = 60 * 60
+
+    def __init__(self, job_ttl_seconds: int | None = None):
         self.jobs: dict[str, dict[str, Any]] = {}
         self.documents: dict[str, dict[str, Any]] = {}
         self.clauses: dict[str, list[dict[str, Any]]] = {}
         self.artifacts: dict[str, list[dict[str, Any]]] = {}
         self.schemas: dict[str, dict[str, Any]] = {}
+
+        # Job TTL configuration (can be overridden via env var)
+        self.job_ttl = job_ttl_seconds or int(
+            os.environ.get("AEGISLANG_JOB_TTL_SECONDS", str(self.DEFAULT_JOB_TTL))
+        )
+
+        # Lock for thread-safe cleanup
+        self._cleanup_lock = threading.Lock()
+        self._last_cleanup = time.time()
 
         # Log warning once per process
         if not Storage._warned:
@@ -262,8 +290,64 @@ class Storage:
             )
             Storage._warned = True
 
+        # Start background cleanup
+        self._start_cleanup_thread()
+
+    def _start_cleanup_thread(self) -> None:
+        """Start background thread for periodic job cleanup."""
+        def cleanup_loop():
+            while True:
+                time.sleep(self.CLEANUP_INTERVAL)
+                self._cleanup_expired_jobs()
+
+        cleanup_thread = threading.Thread(target=cleanup_loop, daemon=True)
+        cleanup_thread.start()
+        logger.info("job_cleanup_thread_started", ttl_seconds=self.job_ttl)
+
+    def _cleanup_expired_jobs(self) -> None:
+        """Remove jobs that have exceeded their TTL."""
+        with self._cleanup_lock:
+            now = datetime.now(timezone.utc)
+            expired_jobs = []
+
+            for job_id, job in self.jobs.items():
+                # Only clean up completed or failed jobs
+                if job["status"] not in (JobStatus.COMPLETED, JobStatus.FAILED):
+                    continue
+
+                completed_at = job.get("completed_at")
+                if not completed_at:
+                    continue
+
+                # Parse completion time and check TTL
+                try:
+                    completed_time = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
+                    age_seconds = (now - completed_time).total_seconds()
+
+                    if age_seconds > self.job_ttl:
+                        expired_jobs.append(job_id)
+                except (ValueError, TypeError):
+                    # If we can't parse the timestamp, skip this job
+                    continue
+
+            # Remove expired jobs
+            for job_id in expired_jobs:
+                del self.jobs[job_id]
+
+            if expired_jobs:
+                logger.info(
+                    "expired_jobs_cleaned",
+                    count=len(expired_jobs),
+                    job_ids=expired_jobs[:10],  # Log first 10 for brevity
+                )
+
     def create_job(self, job_type: str) -> str:
         """Create a new job and return its ID."""
+        # Trigger cleanup if it's been a while (opportunistic cleanup)
+        if time.time() - self._last_cleanup > self.CLEANUP_INTERVAL:
+            self._cleanup_expired_jobs()
+            self._last_cleanup = time.time()
+
         job_id = f"{job_type}_{uuid.uuid4().hex[:8]}"
         self.jobs[job_id] = {
             "job_id": job_id,
@@ -741,29 +825,10 @@ async def get_schema(
 # Error Handlers
 # =============================================================================
 
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc: HTTPException):
-    """Handle HTTP exceptions."""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": exc.detail,
-            "status_code": exc.status_code,
-        },
-    )
+# Register centralized error handlers from core module
+from aegislang.core.errors import register_error_handlers, create_error_response
 
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request, exc: Exception):
-    """Handle unexpected exceptions."""
-    logger.error("unhandled_exception", error=str(exc))
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "status_code": 500,
-        },
-    )
+register_error_handlers(app)
 
 
 # =============================================================================

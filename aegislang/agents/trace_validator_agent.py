@@ -32,6 +32,144 @@ logger = structlog.get_logger(__name__)
 
 
 # -----------------------------------------------------------------------------
+# Neo4j Connection Pool Manager
+# -----------------------------------------------------------------------------
+
+
+class Neo4jConnectionPool:
+    """
+    Manages a pool of Neo4j connections for efficient graph database operations.
+
+    Uses the neo4j driver's built-in connection pooling with configurable settings.
+    Implements singleton pattern to ensure connection reuse across the application.
+    """
+
+    _instance: "Neo4jConnectionPool | None" = None
+    _driver: Any = None
+
+    def __new__(cls) -> "Neo4jConnectionPool":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        # Only initialize once
+        if Neo4jConnectionPool._driver is not None:
+            return
+
+    def initialize(
+        self,
+        uri: str | None = None,
+        user: str | None = None,
+        password: str | None = None,
+        max_connection_pool_size: int = 50,
+        connection_acquisition_timeout: float = 60.0,
+    ) -> None:
+        """
+        Initialize the connection pool with Neo4j driver.
+
+        Args:
+            uri: Neo4j URI (default: from NEO4J_URI env var)
+            user: Username (default: from NEO4J_USER env var)
+            password: Password (default: from NEO4J_PASSWORD env var)
+            max_connection_pool_size: Maximum connections in pool
+            connection_acquisition_timeout: Timeout for acquiring connections
+        """
+        if Neo4jConnectionPool._driver is not None:
+            logger.debug("neo4j_pool_already_initialized")
+            return
+
+        try:
+            from neo4j import GraphDatabase
+        except ImportError:
+            logger.warning("neo4j_driver_not_installed")
+            return
+
+        uri = uri or os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+        user = user or os.environ.get("NEO4J_USER", "neo4j")
+        password = password or os.environ.get("NEO4J_PASSWORD", "")
+
+        if not password:
+            logger.warning("neo4j_password_not_configured")
+            return
+
+        try:
+            Neo4jConnectionPool._driver = GraphDatabase.driver(
+                uri,
+                auth=(user, password),
+                max_connection_pool_size=max_connection_pool_size,
+                connection_acquisition_timeout=connection_acquisition_timeout,
+            )
+            # Verify connectivity
+            Neo4jConnectionPool._driver.verify_connectivity()
+            logger.info(
+                "neo4j_connection_pool_initialized",
+                uri=uri,
+                max_pool_size=max_connection_pool_size,
+            )
+        except Exception as e:
+            logger.error("neo4j_connection_failed", error=str(e))
+            Neo4jConnectionPool._driver = None
+
+    @property
+    def driver(self) -> Any:
+        """Get the Neo4j driver instance."""
+        return Neo4jConnectionPool._driver
+
+    def get_session(self, database: str | None = None) -> Any:
+        """
+        Get a session from the connection pool.
+
+        Args:
+            database: Database name (default: neo4j default database)
+
+        Returns:
+            Neo4j session or None if not connected
+        """
+        if Neo4jConnectionPool._driver is None:
+            return None
+        return Neo4jConnectionPool._driver.session(database=database)
+
+    async def get_async_session(self, database: str | None = None) -> Any:
+        """
+        Get an async session from the connection pool.
+
+        Args:
+            database: Database name (default: neo4j default database)
+
+        Returns:
+            Neo4j async session or None if not connected
+        """
+        if Neo4jConnectionPool._driver is None:
+            return None
+        return Neo4jConnectionPool._driver.session(database=database)
+
+    def close(self) -> None:
+        """Close the connection pool and release all resources."""
+        if Neo4jConnectionPool._driver is not None:
+            Neo4jConnectionPool._driver.close()
+            Neo4jConnectionPool._driver = None
+            logger.info("neo4j_connection_pool_closed")
+
+    @classmethod
+    def reset(cls) -> None:
+        """Reset the singleton (useful for testing)."""
+        if cls._driver is not None:
+            cls._driver.close()
+        cls._driver = None
+        cls._instance = None
+
+
+# Global connection pool instance
+_neo4j_pool = Neo4jConnectionPool()
+
+
+def get_neo4j_pool() -> Neo4jConnectionPool:
+    """Get the global Neo4j connection pool."""
+    return _neo4j_pool
+
+
+# -----------------------------------------------------------------------------
 # Schema Definitions
 # -----------------------------------------------------------------------------
 
@@ -767,59 +905,75 @@ class TraceValidatorAgent:
     async def store_provenance_graph(
         self,
         graph: ProvenanceGraph,
+        use_pool: bool = True,
     ) -> bool:
         """
         Store provenance graph in graph database.
 
+        Uses connection pooling for efficient resource management.
+
         Args:
             graph: ProvenanceGraph to store
+            use_pool: Whether to use the global connection pool (default: True)
 
         Returns:
             Success status
         """
-        if not self.graph_store:
-            logger.warning("no_graph_store_configured")
-            return False
+        session = None
 
         try:
-            # Neo4j implementation
-            if hasattr(self.graph_store, "run"):
-                async with self.graph_store.session() as session:
-                    # Create nodes
-                    for node in graph.nodes:
-                        await session.run(
-                            f"""
-                            MERGE (n:{node.node_type} {{node_id: $node_id}})
-                            SET n += $properties
-                            SET n.created_at = $created_at
-                            """,
-                            node_id=node.node_id,
-                            properties=node.properties,
-                            created_at=node.created_at,
-                        )
+            # Try to get session from pool first (preferred)
+            if use_pool:
+                pool = get_neo4j_pool()
+                session = pool.get_session()
 
-                    # Create edges
-                    for edge in graph.edges:
-                        await session.run(
-                            f"""
-                            MATCH (a {{node_id: $source_id}})
-                            MATCH (b {{node_id: $target_id}})
-                            MERGE (a)-[r:{edge.relationship}]->(b)
-                            SET r += $properties
-                            """,
-                            source_id=edge.source_id,
-                            target_id=edge.target_id,
-                            properties=edge.properties,
-                        )
+            # Fall back to injected graph_store if pool unavailable
+            if session is None and self.graph_store:
+                if hasattr(self.graph_store, "session"):
+                    session = self.graph_store.session()
+                elif hasattr(self.graph_store, "run"):
+                    # Legacy support for direct driver
+                    session = self.graph_store
 
-                logger.info("provenance_graph_stored", graph_id=graph.graph_id)
-                return True
+            if session is None:
+                logger.warning("no_graph_store_available")
+                return False
+
+            # Store nodes and edges using the session
+            with session:
+                # Create nodes
+                for node in graph.nodes:
+                    session.run(
+                        f"""
+                        MERGE (n:{node.node_type} {{node_id: $node_id}})
+                        SET n += $properties
+                        SET n.created_at = $created_at
+                        """,
+                        node_id=node.node_id,
+                        properties=node.properties,
+                        created_at=node.created_at,
+                    )
+
+                # Create edges
+                for edge in graph.edges:
+                    session.run(
+                        f"""
+                        MATCH (a {{node_id: $source_id}})
+                        MATCH (b {{node_id: $target_id}})
+                        MERGE (a)-[r:{edge.relationship}]->(b)
+                        SET r += $properties
+                        """,
+                        source_id=edge.source_id,
+                        target_id=edge.target_id,
+                        properties=edge.properties,
+                    )
+
+            logger.info("provenance_graph_stored", graph_id=graph.graph_id)
+            return True
 
         except Exception as e:
             logger.error("provenance_store_failed", error=str(e))
             return False
-
-        return False
 
     def export_graph_json(self, graph: ProvenanceGraph) -> str:
         """Export provenance graph as JSON."""
