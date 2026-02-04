@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 import structlog
-from jinja2 import Environment, BaseLoader, TemplateNotFound
+from jinja2 import Environment, BaseLoader, TemplateNotFound, select_autoescape
 from pydantic import BaseModel, Field
 
 logger = structlog.get_logger(__name__)
@@ -544,7 +544,15 @@ class TemplateRegistry:
                 "default": JSON_RULE_TEMPLATE,
             },
         }
-        self._env = Environment(loader=BaseLoader())
+        # Initialize Jinja2 with autoescape for HTML/XML as defense-in-depth
+        # This protects against XSS if HTML output is ever added
+        self._env = Environment(
+            loader=BaseLoader(),
+            autoescape=select_autoescape(
+                enabled_extensions=["html", "htm", "xml"],
+                default_for_string=False,  # Don't escape by default for YAML/SQL/etc
+            ),
+        )
         self._env.filters["truncate"] = lambda s, length: (
             s[:length] + "..." if len(s) > length else s
         )
@@ -552,9 +560,10 @@ class TemplateRegistry:
         self._env.filters["sqlescape"] = lambda s: (
             str(s).replace("'", "''").replace("\\", "\\\\") if s else ""
         )
-        # Combined filter for SQL comments (escape and truncate)
+        # Combined filter for SQL comments (truncate first, then escape)
+        # Truncating before escaping prevents breaking mid-escape sequence
         self._env.filters["sqlsafe"] = lambda s, length=200: (
-            (str(s).replace("'", "''").replace("\\", "\\\\")[:length] + "...")
+            (str(s)[:length] + "...").replace("'", "''").replace("\\", "\\\\")
             if s and len(str(s)) > length
             else str(s).replace("'", "''").replace("\\", "\\\\") if s else ""
         )

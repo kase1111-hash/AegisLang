@@ -184,8 +184,16 @@ class MappedClauseCollection(BaseModel):
 # -----------------------------------------------------------------------------
 
 
+class EmbeddingDimensionError(ValueError):
+    """Raised when embedding dimensions don't match expected value."""
+    pass
+
+
 class BaseEmbeddingProvider:
     """Base class for embedding providers."""
+
+    # Expected embedding dimensions (can be overridden by subclasses)
+    expected_dimensions: int | None = None
 
     def embed(self, text: str) -> list[float]:
         """Generate embedding for text."""
@@ -195,14 +203,50 @@ class BaseEmbeddingProvider:
         """Generate embeddings for multiple texts."""
         return [self.embed(text) for text in texts]
 
+    def validate_embedding(self, embedding: list[float], context: str = "") -> list[float]:
+        """
+        Validate embedding dimensions match expected value.
+
+        Args:
+            embedding: The embedding to validate
+            context: Context for error messages (e.g., "field name")
+
+        Returns:
+            The embedding if valid
+
+        Raises:
+            EmbeddingDimensionError: If dimensions don't match expected value
+        """
+        if self.expected_dimensions is not None:
+            actual = len(embedding)
+            if actual != self.expected_dimensions:
+                raise EmbeddingDimensionError(
+                    f"Embedding dimension mismatch{' for ' + context if context else ''}: "
+                    f"expected {self.expected_dimensions}, got {actual}"
+                )
+        return embedding
+
+    def embed_with_validation(self, text: str, context: str = "") -> list[float]:
+        """Generate and validate embedding for text."""
+        embedding = self.embed(text)
+        return self.validate_embedding(embedding, context)
+
 
 class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
     """OpenAI embeddings provider."""
+
+    # Known dimensions for OpenAI models
+    MODEL_DIMENSIONS = {
+        "text-embedding-3-small": 1536,
+        "text-embedding-3-large": 3072,
+        "text-embedding-ada-002": 1536,
+    }
 
     def __init__(
         self,
         api_key: str | None = None,
         model: str = "text-embedding-3-small",
+        validate_dimensions: bool = True,
     ):
         try:
             import openai
@@ -218,13 +262,18 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         self.client = openai.OpenAI(api_key=self.api_key)
         self.model = model
 
+        # Set expected dimensions for validation
+        if validate_dimensions and model in self.MODEL_DIMENSIONS:
+            self.expected_dimensions = self.MODEL_DIMENSIONS[model]
+
     def embed(self, text: str) -> list[float]:
         """Generate embedding using OpenAI."""
         response = self.client.embeddings.create(
             model=self.model,
             input=text,
         )
-        return response.data[0].embedding
+        embedding = response.data[0].embedding
+        return self.validate_embedding(embedding, text[:50])
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for batch."""
@@ -232,13 +281,17 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             model=self.model,
             input=texts,
         )
-        return [item.embedding for item in response.data]
+        embeddings = [item.embedding for item in response.data]
+        # Validate each embedding
+        for i, emb in enumerate(embeddings):
+            self.validate_embedding(emb, texts[i][:50] if i < len(texts) else "")
+        return embeddings
 
 
 class SentenceTransformerProvider(BaseEmbeddingProvider):
     """Sentence Transformers embedding provider (local)."""
 
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2", validate_dimensions: bool = True):
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:
@@ -248,24 +301,53 @@ class SentenceTransformerProvider(BaseEmbeddingProvider):
             ) from e
 
         self.model = SentenceTransformer(model_name)
+        self._validate_dimensions = validate_dimensions
+
+        # Detect dimensions from model
+        if validate_dimensions:
+            try:
+                # Get embedding dimension from model
+                test_embedding = self.model.encode("test")
+                self.expected_dimensions = len(test_embedding)
+                logger.info(
+                    "sentence_transformer_initialized",
+                    model=model_name,
+                    dimensions=self.expected_dimensions,
+                )
+            except Exception as e:
+                logger.warning(
+                    "could_not_detect_dimensions",
+                    model=model_name,
+                    error=str(e),
+                )
 
     def embed(self, text: str) -> list[float]:
         """Generate embedding using Sentence Transformers."""
         embedding = self.model.encode(text)
-        return embedding.tolist()
+        result = embedding.tolist()
+        if self._validate_dimensions:
+            return self.validate_embedding(result, text[:50])
+        return result
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for batch."""
         embeddings = self.model.encode(texts)
-        return embeddings.tolist()
+        results = embeddings.tolist()
+        if self._validate_dimensions:
+            for i, emb in enumerate(results):
+                self.validate_embedding(emb, texts[i][:50] if i < len(texts) else "")
+        return results
 
 
 class MockEmbeddingProvider(BaseEmbeddingProvider):
     """Mock embedding provider for testing."""
 
-    def __init__(self, dimensions: int = 384):
+    def __init__(self, dimensions: int = 384, validate_dimensions: bool = True):
         self.dimensions = dimensions
         self._cache: dict[str, list[float]] = {}
+        # Set expected dimensions for validation
+        if validate_dimensions:
+            self.expected_dimensions = dimensions
 
     def embed(self, text: str) -> list[float]:
         """Generate deterministic mock embedding."""
