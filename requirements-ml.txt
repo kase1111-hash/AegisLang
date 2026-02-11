@@ -1,0 +1,9 @@
+# AegisLang — Optional ML/Embedding Dependencies
+# Install with: pip install -r requirements-ml.txt
+# Required only for SentenceTransformerProvider in schema_mapping_agent.
+
+-r requirements.txt
+
+sentence-transformers>=2.2.0
+transformers>=4.35.0
+torch>=2.1.0

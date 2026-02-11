@@ -1,78 +1,68 @@
-AegisLang
+# AegisLang
 
-(formerly "Policy-to-Execution Compiler")
-Tagline: Language in. Compliance out.
+**Language in. Compliance out.**
 
-🧠 README — AegisLang
+AegisLang is a multi-agent semantic compiler that transforms natural-language policy documents (regulations, SOPs, governance rules) into executable control logic — YAML rules, SQL constraints, and Python checks — with full clause-to-artifact traceability.
 
-AegisLang is a **natural language programming** platform and semantic policy-compiler that transforms natural-language regulations, SOPs, or governance documents into executable control logic — fully traceable and verifiable across distributed systems. A **prose-first development** approach that enables **code from prose** with full intent preservation.
+## Purpose
 
-🔍 Purpose
+- Convert policy documents to machine-enforceable rules automatically
+- Maintain traceability from source regulation to generated artifact
+- Support multiple output formats (YAML, SQL, Python)
 
-**What Problem Does This Solve?**
+## Core Flow
 
-- How do I convert policy documents to code automatically?
-- How can I enforce compliance without manual coding?
-- How do I maintain traceability from regulation to execution?
+```
+policy_doc → AegisIngestor → PolicyParser → SchemaMapper → Compiler → TraceValidator
+```
 
-AegisLang bridges the gap between policy text and machine enforcement using **language-native architecture** and **NLP software development** principles. It parses human-written rules, maps their semantics to operational entities, and emits executable artifacts (YAML, SQL, JSON, or RPA scripts) — enabling **human-AI collaboration** for governance and compliance.
+1. **Ingest** — parse PDF, DOCX, Markdown, or HTML into structured sections
+2. **Parse** — extract clauses with type detection (obligation, prohibition, permission, conditional)
+3. **Map** — align policy entities to target database schema via synonym + semantic matching
+4. **Compile** — emit YAML, SQL, and Python artifacts from Jinja2 templates
+5. **Validate** — verify clause-to-artifact traceability and provenance
 
-⚙️ Core Flow
-policy_doc → AegisParser → RuleMapper → CodeEmitter → TraceValidator → ControlRepo
+## Example Output
 
-🧩 Integration
-
-**Agent-OS**: Agents act as parsing, mapping, and emission nodes on the event bus. Leverages the **natural language operating system** for **agent orchestration**.
-
-**NatLangChain**: Handles the natural-language pipelines, clause reasoning, and schema alignment using **semantic blockchain** technology for **auditable prose transactions**.
-
-📦 Example Output
+```yaml
 control:
   id: KYC-102
   source: "AML Reg §5.3"
   rule: "Verify customer identity for all accounts > $5,000"
   emit: "identity_check_routine()"
+```
 
-🚀 Features
+## Features
 
-- **Full clause-to-code traceability** — maintains **process legibility** and **human authorship verification**
-- **Plug-in compiler templates** for multiple domains with **constitutional AI design** principles
-- **LLM-driven schema mapping** (no hard-coded rules) — true **cognitive work value** extraction
-- **Ready for CI/CD or compliance dashboards** — supports **digital sovereignty** and **owned AI infrastructure**
-- **Intent preservation** throughout the compilation pipeline
+- **Full clause-to-code traceability** — every artifact links back to its source clause
+- **Plug-in compiler templates** for YAML, SQL, and Python output
+- **LLM-driven schema mapping** (Anthropic / OpenAI) — no hard-coded entity rules
+- **Mock mode** for offline development and testing without LLM API keys
+- **Configurable template system** via Jinja2
 
-🧭 Roadmap
+## Current Status
+
+AegisLang is an early-stage prototype. The core pipeline works end-to-end with mock LLM clients. Real LLM integration (Anthropic, OpenAI) is implemented but not yet validated against real regulatory documents.
+
+## Roadmap
 
 - RAG-based policy retrieval
 - Continuous rule drift detection
-- Audit chain visualizer (NatLangChain integration)
-- **AI learning contracts** for safe training governance
-- **Proof of human work** verification layer
+- Persistent storage (SQLite) for the API layer
+- Domain-specific prompt tuning (AML/KYC)
+
+## Quick Start
+
+```bash
+pip install -r requirements.txt
+python -m aegislang.api.server
+```
+
+AegisLang can integrate with Agent-OS for event-driven pipeline orchestration.
 
 ---
 
-## 🔗 Part of the NatLangChain Ecosystem
-
-AegisLang is part of a broader ecosystem of natural language and AI-native tools:
-
-| Repository | Description |
-|------------|-------------|
-| [NatLangChain](https://github.com/kase1111-hash/NatLangChain) | Prose-first, intent-native blockchain protocol for human-readable smart contracts |
-| [Agent-OS](https://github.com/kase1111-hash/Agent-OS) | Natural language operating system for AI agent coordination |
-| [IntentLog](https://github.com/kase1111-hash/IntentLog) | Git for human reasoning — tracks "why" changes happen via prose commits |
-| [learning-contracts](https://github.com/kase1111-hash/learning-contracts) | Safety protocols for AI learning and data governance |
-| [boundary-daemon](https://github.com/kase1111-hash/boundary-daemon-) | Mandatory trust enforcement layer defining AI cognition boundaries |
-| [mediator-node](https://github.com/kase1111-hash/mediator-node) | LLM mediation layer for semantic matching and negotiation |
-| [ILR-module](https://github.com/kase1111-hash/ILR-module) | IP & Licensing Reconciliation for dispute resolution |
-| [memory-vault](https://github.com/kase1111-hash/memory-vault) | Sovereign, offline-capable storage for cognitive artifacts |
-| [value-ledger](https://github.com/kase1111-hash/value-ledger) | Economic accounting layer for cognitive work and idea attribution |
-| [synth-mind](https://github.com/kase1111-hash/synth-mind) | Psychological AI architecture with emergent continuity and empathy |
-
----
-
-## 🚀 Step-by-Step Setup Guide
-
-Follow these steps to set up and run AegisLang:
+## Setup Guide
 
 ### Phase 1: Project Foundation
 - [x] Create project directory structure
