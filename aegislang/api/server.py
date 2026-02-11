@@ -376,7 +376,16 @@ class Storage:
                 self.jobs[job_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
 
 
-storage = Storage()
+def _create_storage() -> Storage:
+    """Create storage backend based on AEGISLANG_STORAGE_BACKEND env var."""
+    backend = os.environ.get("AEGISLANG_STORAGE_BACKEND", "memory").lower()
+    if backend == "sqlite":
+        from aegislang.api.sqlite_storage import SqliteStorage
+        return SqliteStorage()  # type: ignore[return-value]
+    return Storage()
+
+
+storage = _create_storage()
 
 
 def get_storage() -> Storage:

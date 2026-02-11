@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S005_C000_CL001
+
+Source: Financial institutions should be required to identify the customer and...
+Generated: 2026-02-11T18:36:03.865274+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S005_C000_CL001:
+    """Test cases for ClauseType.OBLIGATION rule: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S005_C000_CL001"""
+
+    @pytest.fixture
+    def compliant_financial_institutions(self):
+        """Create a compliant Financial institutions fixture."""
+        return {
+            "id": "test_financial_institutions_001",
+
+            "be_status": True,
+
+
+            "customer's_identity": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_financial_institutions(self):
+        """Create a non-compliant Financial institutions fixture."""
+        return {
+            "id": "test_financial_institutions_002",
+
+            "be_status": False,
+
+
+            "customer's_identity": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_be_obligation_met(
+        self, compliant_financial_institutions
+    ):
+        """Test that obligation is satisfied when be is performed."""
+        entity = compliant_financial_institutions
+
+        # Assert obligation is met
+        assert entity["be_status"] is True, \
+            "Financial institutions must be customer's identity"
+
+    def test_be_obligation_violated(
+        self, non_compliant_financial_institutions
+    ):
+        """Test that violation is detected when be is not performed."""
+        entity = non_compliant_financial_institutions
+
+        # Assert obligation is violated
+        assert entity["be_status"] is False, \
+            "Expected violation when Financial institutions does not be"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S005_C000_CL001"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Financial institutions should be required to identify the customer and verify the customer's identity using reliable, independent source documents, data, or information."""
+CONFIDENCE = 0.5

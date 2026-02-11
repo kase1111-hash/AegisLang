@@ -1,0 +1,81 @@
+"""
+Test for compliance rule: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S006_C000_CL002
+
+Source: Records shall include a description of any document relied upon for id...
+Generated: 2026-02-11T18:36:04.453582+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S006_C000_CL002:
+    """Test cases for ClauseType.OBLIGATION rule: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S006_C000_CL002"""
+
+    @pytest.fixture
+    def compliant_records(self):
+        """Create a compliant Records fixture."""
+        return {
+            "id": "test_records_001",
+
+            "include_status": True,
+
+
+            "a_description_of_any": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_records(self):
+        """Create a non-compliant Records fixture."""
+        return {
+            "id": "test_records_002",
+
+            "include_status": False,
+
+
+            "a_description_of_any": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_include_obligation_met(
+        self, compliant_records
+    ):
+        """Test that obligation is satisfied when include is performed."""
+        entity = compliant_records
+
+        # Assert obligation is met
+        assert entity["include_status"] is True, \
+            "Records must include a description of any"
+
+    def test_include_obligation_violated(
+        self, non_compliant_records
+    ):
+        """Test that violation is detected when include is not performed."""
+        entity = non_compliant_records
+
+        # Assert obligation is violated
+        assert entity["include_status"] is False, \
+            "Expected violation when Records does not include"
+
+
+
+
+    def test_condition_trigger(self):
+        """Test that rule applies when condition 'for identity verification' is met."""
+        # TODO: Implement condition testing for: for identity verification
+        pytest.skip("Condition testing not yet implemented")
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S006_C000_CL002"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Records shall include a description of any document relied upon for identity verification, including the type of document, identification number, place of issuance, and date of issuance or expiration."""
+CONFIDENCE = 0.5

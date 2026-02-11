@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S008_C000_CL003
+
+Source: Existing customers whose identity cannot be verified must be subject t...
+Generated: 2026-02-11T18:36:04.138143+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S008_C000_CL003:
+    """Test cases for ClauseType.OBLIGATION rule: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S008_C000_CL003"""
+
+    @pytest.fixture
+    def compliant_existing_customers_whose_identity_cannot_be_verified(self):
+        """Create a compliant Existing customers whose identity cannot be verified fixture."""
+        return {
+            "id": "test_existing_customers_whose_identity_cannot_be_verified_001",
+
+            "be_status": True,
+
+
+            "subject_to_enhanced_monitoring": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_existing_customers_whose_identity_cannot_be_verified(self):
+        """Create a non-compliant Existing customers whose identity cannot be verified fixture."""
+        return {
+            "id": "test_existing_customers_whose_identity_cannot_be_verified_002",
+
+            "be_status": False,
+
+
+            "subject_to_enhanced_monitoring": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_be_obligation_met(
+        self, compliant_existing_customers_whose_identity_cannot_be_verified
+    ):
+        """Test that obligation is satisfied when be is performed."""
+        entity = compliant_existing_customers_whose_identity_cannot_be_verified
+
+        # Assert obligation is met
+        assert entity["be_status"] is True, \
+            "Existing customers whose identity cannot be verified must be subject to enhanced monitoring"
+
+    def test_be_obligation_violated(
+        self, non_compliant_existing_customers_whose_identity_cannot_be_verified
+    ):
+        """Test that violation is detected when be is not performed."""
+        entity = non_compliant_existing_customers_whose_identity_cannot_be_verified
+
+        # Assert obligation is violated
+        assert entity["be_status"] is False, \
+            "Expected violation when Existing customers whose identity cannot be verified does not be"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S008_C000_CL003"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Existing customers whose identity cannot be verified must be subject to enhanced monitoring or account termination."""
+CONFIDENCE = 0.5

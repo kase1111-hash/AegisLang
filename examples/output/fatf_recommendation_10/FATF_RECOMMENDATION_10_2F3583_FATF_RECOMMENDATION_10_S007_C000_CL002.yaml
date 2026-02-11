@@ -1,0 +1,32 @@
+# Source: Simplified measures shall not apply when there is a suspicion of money launderin...
+# Clause ID: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S007_C000_CL002
+# Generated: 2026-02-11T18:36:04.032688+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S007_C000_CL002
+  type: prohibition
+  rule: "MUST NOT apply when there is a"
+
+  actor:
+    entity: "Simplified measures"
+
+
+  prohibited_action:
+    operation: "apply"
+    enforcement: "block"
+
+
+  object:
+    entity: "when there is a"
+
+
+
+
+
+  severity: critical
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_2F3583"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v0.1.0"

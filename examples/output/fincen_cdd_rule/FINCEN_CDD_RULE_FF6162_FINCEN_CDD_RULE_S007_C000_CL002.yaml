@@ -1,0 +1,36 @@
+# Source: Institutions shall assign risk ratings to customers using criteria that include ...
+# Clause ID: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S007_C000_CL002
+# Generated: 2026-02-11T18:36:04.920257+00:00
+# Confidence: 0.95
+
+control:
+  id: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S007_C000_CL002
+  type: ClauseType.OBLIGATION
+  rule: "assign risk level"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "assign"
+
+
+
+  object:
+    entity: "risk level"
+
+    mapped_to: "customers.risk_level"
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FINCEN_CDD_RULE_FF6162"
+    confidence: 0.95
+    generated_by: "aegislang-compiler-v0.1.0"

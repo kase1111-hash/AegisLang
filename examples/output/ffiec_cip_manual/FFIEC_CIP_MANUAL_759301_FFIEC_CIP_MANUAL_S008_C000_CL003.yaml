@@ -1,0 +1,37 @@
+# Source: Institutions may satisfy this requirement through posting a notice in the lobby ...
+# Clause ID: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S008_C000_CL003
+# Generated: 2026-02-11T18:36:04.610946+00:00
+# Confidence: 0.5
+
+control:
+  id: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S008_C000_CL003
+  type: ClauseType.PERMISSION
+  rule: "satisfy"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "satisfy"
+
+
+
+
+
+
+
+  temporal_scope:
+
+    deadline: "or on the website"
+
+
+
+
+
+  severity: medium
+
+  metadata:
+    source_document: "FFIEC_CIP_MANUAL_759301"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v0.1.0"

@@ -1,0 +1,36 @@
+# Source: Covered financial institutions must identify and verify the identity of benefici...
+# Clause ID: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S006_C000_CL001
+# Generated: 2026-02-11T18:36:04.846343+00:00
+# Confidence: 0.95
+
+control:
+  id: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S006_C000_CL001
+  type: ClauseType.OBLIGATION
+  rule: "identify identity"
+
+  actor:
+    entity: "Covered financial institutions"
+
+
+  action:
+    operation: "identify"
+
+
+
+  object:
+    entity: "identity"
+
+    mapped_to: "customers.identity_verified"
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FINCEN_CDD_RULE_FF6162"
+    confidence: 0.95
+    generated_by: "aegislang-compiler-v0.1.0"

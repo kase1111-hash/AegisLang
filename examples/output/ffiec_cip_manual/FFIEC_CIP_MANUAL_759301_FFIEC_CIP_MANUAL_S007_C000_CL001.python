@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S007_C000_CL001
+
+Source: Banks must determine whether a customer appears on any list of known o...
+Generated: 2026-02-11T18:36:04.502031+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S007_C000_CL001:
+    """Test cases for ClauseType.OBLIGATION rule: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S007_C000_CL001"""
+
+    @pytest.fixture
+    def compliant_banks(self):
+        """Create a compliant Banks fixture."""
+        return {
+            "id": "test_banks_001",
+
+            "determine_status": True,
+
+
+            "whether_a_customer_appears": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_banks(self):
+        """Create a non-compliant Banks fixture."""
+        return {
+            "id": "test_banks_002",
+
+            "determine_status": False,
+
+
+            "whether_a_customer_appears": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_determine_obligation_met(
+        self, compliant_banks
+    ):
+        """Test that obligation is satisfied when determine is performed."""
+        entity = compliant_banks
+
+        # Assert obligation is met
+        assert entity["determine_status"] is True, \
+            "Banks must determine whether a customer appears"
+
+    def test_determine_obligation_violated(
+        self, non_compliant_banks
+    ):
+        """Test that violation is detected when determine is not performed."""
+        entity = non_compliant_banks
+
+        # Assert obligation is violated
+        assert entity["determine_status"] is False, \
+            "Expected violation when Banks does not determine"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S007_C000_CL001"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Banks must determine whether a customer appears on any list of known or suspected terrorists or terrorist organizations."""
+CONFIDENCE = 0.5

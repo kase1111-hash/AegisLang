@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S006_C000_CL002
+
+Source: Institutions shall identify one individual with significant responsibi...
+Generated: 2026-02-11T18:36:04.882485+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S006_C000_CL002:
+    """Test cases for ClauseType.OBLIGATION rule: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S006_C000_CL002"""
+
+    @pytest.fixture
+    def compliant_institutions(self):
+        """Create a compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_001",
+
+            "identify_status": True,
+
+
+            "one_individual_with_significant": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_institutions(self):
+        """Create a non-compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_002",
+
+            "identify_status": False,
+
+
+            "one_individual_with_significant": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_identify_obligation_met(
+        self, compliant_institutions
+    ):
+        """Test that obligation is satisfied when identify is performed."""
+        entity = compliant_institutions
+
+        # Assert obligation is met
+        assert entity["identify_status"] is True, \
+            "Institutions must identify one individual with significant"
+
+    def test_identify_obligation_violated(
+        self, non_compliant_institutions
+    ):
+        """Test that violation is detected when identify is not performed."""
+        entity = non_compliant_institutions
+
+        # Assert obligation is violated
+        assert entity["identify_status"] is False, \
+            "Expected violation when Institutions does not identify"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S006_C000_CL002"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Institutions shall identify one individual with significant responsibility for managing the legal entity."""
+CONFIDENCE = 0.5

@@ -17,8 +17,8 @@
   "mapping": {
     "target_schema": "aml_schema",
     "fully_mapped": 0,
-    "partially_mapped": 0,
-    "unmapped": 18
+    "partially_mapped": 1,
+    "unmapped": 17
   },
   "compilation": {
     "artifact_counts": {
@@ -30,8 +30,8 @@
   },
   "validation": {
     "total": 54,
-    "passed": 30,
+    "passed": 32,
     "failed": 18,
-    "needs_review": 6
+    "needs_review": 4
   }
 }

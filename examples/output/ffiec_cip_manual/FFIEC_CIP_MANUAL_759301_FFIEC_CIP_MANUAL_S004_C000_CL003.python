@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S004_C000_CL003
+
+Source: The board of directors must approve the CIP.
+Generated: 2026-02-11T18:36:04.346384+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S004_C000_CL003:
+    """Test cases for ClauseType.OBLIGATION rule: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S004_C000_CL003"""
+
+    @pytest.fixture
+    def compliant_the_board_of_directors(self):
+        """Create a compliant The board of directors fixture."""
+        return {
+            "id": "test_the_board_of_directors_001",
+
+            "approve_status": True,
+
+
+            "the_cip": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_the_board_of_directors(self):
+        """Create a non-compliant The board of directors fixture."""
+        return {
+            "id": "test_the_board_of_directors_002",
+
+            "approve_status": False,
+
+
+            "the_cip": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_approve_obligation_met(
+        self, compliant_the_board_of_directors
+    ):
+        """Test that obligation is satisfied when approve is performed."""
+        entity = compliant_the_board_of_directors
+
+        # Assert obligation is met
+        assert entity["approve_status"] is True, \
+            "The board of directors must approve the CIP"
+
+    def test_approve_obligation_violated(
+        self, non_compliant_the_board_of_directors
+    ):
+        """Test that violation is detected when approve is not performed."""
+        entity = non_compliant_the_board_of_directors
+
+        # Assert obligation is violated
+        assert entity["approve_status"] is False, \
+            "Expected violation when The board of directors does not approve"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S004_C000_CL003"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """The board of directors must approve the CIP."""
+CONFIDENCE = 0.5

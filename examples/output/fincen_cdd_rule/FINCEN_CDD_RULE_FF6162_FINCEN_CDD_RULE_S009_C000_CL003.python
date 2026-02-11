@@ -1,0 +1,75 @@
+"""
+Test for compliance rule: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S009_C000_CL003
+
+Source: Banks must not destroy records that are subject to ongoing investigati...
+Generated: 2026-02-11T18:36:05.100948+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S009_C000_CL003:
+    """Test cases for ClauseType.PROHIBITION rule: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S009_C000_CL003"""
+
+    @pytest.fixture
+    def compliant_banks(self):
+        """Create a compliant Banks fixture."""
+        return {
+            "id": "test_banks_001",
+
+            "destroy_status": False,
+
+
+            "records_that_are_subject": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_banks(self):
+        """Create a non-compliant Banks fixture."""
+        return {
+            "id": "test_banks_002",
+
+            "destroy_status": True,
+
+
+            "records_that_are_subject": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_destroy_prohibition_respected(
+        self, compliant_banks
+    ):
+        """Test that prohibition is respected when destroy is not performed."""
+        entity = compliant_banks
+
+        # Assert prohibition is respected
+        assert entity["destroy_status"] is False, \
+            "Banks must not destroy records that are subject"
+
+    def test_destroy_prohibition_violated(
+        self, non_compliant_banks
+    ):
+        """Test that violation is detected when destroy is performed."""
+        entity = non_compliant_banks
+
+        # Assert prohibition is violated
+        assert entity["destroy_status"] is True, \
+            "Expected violation when Banks does destroy"
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S009_C000_CL003"
+CLAUSE_TYPE = "ClauseType.PROHIBITION"
+SOURCE_TEXT = """Banks must not destroy records that are subject to ongoing investigations or legal proceedings."""
+CONFIDENCE = 0.5
