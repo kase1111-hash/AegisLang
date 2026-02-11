@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S005_C000_CL004
+
+Source: Institutions must conduct ongoing due diligence on the business relati...
+Generated: 2026-02-11T18:36:03.939657+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S005_C000_CL004:
+    """Test cases for ClauseType.OBLIGATION rule: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S005_C000_CL004"""
+
+    @pytest.fixture
+    def compliant_institutions(self):
+        """Create a compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_001",
+
+            "conduct_status": True,
+
+
+            "transactions": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_institutions(self):
+        """Create a non-compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_002",
+
+            "conduct_status": False,
+
+
+            "transactions": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_conduct_obligation_met(
+        self, compliant_institutions
+    ):
+        """Test that obligation is satisfied when conduct is performed."""
+        entity = compliant_institutions
+
+        # Assert obligation is met
+        assert entity["conduct_status"] is True, \
+            "Institutions must conduct transactions"
+
+    def test_conduct_obligation_violated(
+        self, non_compliant_institutions
+    ):
+        """Test that violation is detected when conduct is not performed."""
+        entity = non_compliant_institutions
+
+        # Assert obligation is violated
+        assert entity["conduct_status"] is False, \
+            "Expected violation when Institutions does not conduct"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S005_C000_CL004"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Institutions must conduct ongoing due diligence on the business relationship and scrutinize transactions to ensure consistency with the institution's knowledge of the customer."""
+CONFIDENCE = 0.5

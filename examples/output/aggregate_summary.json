@@ -2,10 +2,10 @@
   "documents_processed": 3,
   "total_clauses": 49,
   "total_artifacts": 147,
-  "mapping_fully_mapped": 0,
-  "mapping_partially_mapped": 2,
-  "mapping_unmapped": 47,
-  "mapping_success_rate_pct": 4.1,
+  "mapping_fully_mapped": 1,
+  "mapping_partially_mapped": 8,
+  "mapping_unmapped": 40,
+  "mapping_success_rate_pct": 18.4,
   "per_document": [
     {
       "document": "fatf_recommendation_10",
@@ -26,8 +26,8 @@
       "mapping": {
         "target_schema": "aml_schema",
         "fully_mapped": 0,
-        "partially_mapped": 0,
-        "unmapped": 18
+        "partially_mapped": 1,
+        "unmapped": 17
       },
       "compilation": {
         "artifact_counts": {
@@ -39,9 +39,9 @@
       },
       "validation": {
         "total": 54,
-        "passed": 30,
+        "passed": 32,
         "failed": 18,
-        "needs_review": 6
+        "needs_review": 4
       }
     },
     {
@@ -62,8 +62,8 @@
       "mapping": {
         "target_schema": "aml_schema",
         "fully_mapped": 0,
-        "partially_mapped": 1,
-        "unmapped": 16
+        "partially_mapped": 3,
+        "unmapped": 14
       },
       "compilation": {
         "artifact_counts": {
@@ -96,9 +96,9 @@
       },
       "mapping": {
         "target_schema": "aml_schema",
-        "fully_mapped": 0,
-        "partially_mapped": 1,
-        "unmapped": 13
+        "fully_mapped": 1,
+        "partially_mapped": 4,
+        "unmapped": 9
       },
       "compilation": {
         "artifact_counts": {

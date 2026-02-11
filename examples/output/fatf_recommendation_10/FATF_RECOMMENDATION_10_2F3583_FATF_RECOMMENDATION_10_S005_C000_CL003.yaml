@@ -1,0 +1,34 @@
+# Source: Financial institutions shall understand and obtain information on the purpose an...
+# Clause ID: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S005_C000_CL003
+# Generated: 2026-02-11T18:36:03.903494+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S005_C000_CL003
+  type: ClauseType.OBLIGATION
+  rule: "understand information on the purpose"
+
+  actor:
+    entity: "Financial institutions"
+
+
+  action:
+    operation: "understand"
+
+
+
+  object:
+    entity: "information on the purpose"
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_2F3583"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v0.1.0"

@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S004_C000_CL001
+
+Source: Each bank must implement a written Customer Identification Program app...
+Generated: 2026-02-11T18:36:04.297707+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S004_C000_CL001:
+    """Test cases for ClauseType.OBLIGATION rule: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S004_C000_CL001"""
+
+    @pytest.fixture
+    def compliant_each_bank(self):
+        """Create a compliant Each bank fixture."""
+        return {
+            "id": "test_each_bank_001",
+
+            "implement_status": True,
+
+
+            "customer_identity": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_each_bank(self):
+        """Create a non-compliant Each bank fixture."""
+        return {
+            "id": "test_each_bank_002",
+
+            "implement_status": False,
+
+
+            "customer_identity": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_implement_obligation_met(
+        self, compliant_each_bank
+    ):
+        """Test that obligation is satisfied when implement is performed."""
+        entity = compliant_each_bank
+
+        # Assert obligation is met
+        assert entity["implement_status"] is True, \
+            "Each bank must implement customer identity"
+
+    def test_implement_obligation_violated(
+        self, non_compliant_each_bank
+    ):
+        """Test that violation is detected when implement is not performed."""
+        entity = non_compliant_each_bank
+
+        # Assert obligation is violated
+        assert entity["implement_status"] is False, \
+            "Expected violation when Each bank does not implement"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S004_C000_CL001"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Each bank must implement a written Customer Identification Program appropriate for its size and type of business."""
+CONFIDENCE = 0.5

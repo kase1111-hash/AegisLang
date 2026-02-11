@@ -1,0 +1,38 @@
+# Source: Banks must retain records of the identifying information obtained from customers...
+# Clause ID: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S006_C000_CL001
+# Generated: 2026-02-11T18:36:04.418011+00:00
+# Confidence: 0.5
+
+control:
+  id: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S006_C000_CL001
+  type: ClauseType.OBLIGATION
+  rule: "retain records"
+
+  actor:
+    entity: "Banks"
+
+
+  action:
+    operation: "retain"
+
+
+
+  object:
+    entity: "records"
+
+
+
+
+  trigger:
+    event: "the account is closed"
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FFIEC_CIP_MANUAL_759301"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v0.1.0"

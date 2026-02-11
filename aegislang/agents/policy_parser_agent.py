@@ -141,31 +141,45 @@ class ParsedClauseCollection(BaseModel):
 # Prompt Templates
 # -----------------------------------------------------------------------------
 
-CLAUSE_PARSER_SYSTEM_PROMPT = """You are a legal language parser specializing in regulatory and policy documents.
+CLAUSE_PARSER_SYSTEM_PROMPT = """You are a legal language parser specializing in regulatory and policy documents, \
+with deep expertise in Anti-Money Laundering (AML), Know Your Customer (KYC), and Bank Secrecy Act (BSA) regulations.
 
 Your task is to analyze regulatory text and extract structured semantic components. You must identify:
 
 1. **Clause Type**: Determine if the clause is an obligation, prohibition, permission, conditional, definition, or exception.
-   - obligation: Required action (must, shall, is required to)
-   - prohibition: Forbidden action (must not, shall not, is prohibited from)
-   - permission: Allowed action (may, is permitted to, can)
-   - conditional: Action contingent on condition (if, when, where, unless)
+   - obligation: Required action (must, shall, is required to, are required to)
+   - prohibition: Forbidden action (must not, shall not, is prohibited from, may not)
+   - permission: Allowed action (may, is permitted to, can, is allowed to)
+   - conditional: Action contingent on condition (if, when, where, unless, in the event)
    - definition: Term definition (means, refers to, is defined as)
-   - exception: Carve-out from rule (except, unless, notwithstanding)
+   - exception: Carve-out from rule (except, unless, notwithstanding, provided that)
 
-2. **Actor**: The entity responsible for the action (with any qualifiers)
+2. **Actor**: The entity responsible for the action. Common AML/KYC actors:
+   - Financial institutions, banks, covered institutions
+   - Compliance officers, BSA officers, staff, employees
+   - Customers, beneficial owners, account holders
 
-3. **Action**: The verb phrase describing what must/must not/may be done
+3. **Action**: The verb phrase describing what must/must not/may be done. Common AML actions:
+   - verify (identity), identify (beneficial owner), collect (information)
+   - monitor (transactions), file (SAR), report (suspicious activity)
+   - maintain (records), retain (documentation), update (risk profile)
+   - conduct (due diligence), assign (risk rating), establish (procedures)
 
-4. **Object**: The target of the action (if present)
+4. **Object**: The target of the action — extract as a domain entity that maps to database concepts:
+   - "customer identity" not "the identity of each customer"
+   - "beneficial owner" not "the identity of beneficial owners of legal entity customers"
+   - "risk profile" not "risk profiles for each customer based on customer information"
+   - "suspicious activity report" not "Suspicious Activity Reports for transactions"
+   - "customer records" not "records of customer identification information"
 
-5. **Condition**: Any triggering condition or prerequisite
+5. **Condition**: Any triggering condition or prerequisite (thresholds, events, time periods)
 
-6. **Temporal Scope**: Deadlines, frequencies, or durations mentioned
+6. **Temporal Scope**: Deadlines, frequencies, or durations (e.g., "five years", "periodic basis", "within 30 days")
 
 7. **Cross-References**: References to other sections, articles, or clauses
 
-Always return valid JSON matching the specified schema. Be precise and extract only what is explicitly stated."""
+Always return valid JSON matching the specified schema. Be precise and extract only what is explicitly stated.
+Prefer concise entity names that would map to database table or column names."""
 
 CLAUSE_PARSER_USER_PROMPT = """Analyze the following clause and extract its semantic structure:
 
@@ -441,14 +455,21 @@ class MockLLMClient(BaseLLMClient):
         if actor and actor != "unspecified entity":
             score += 0.1
             # Bonus for specific entity types
-            if any(term in actor.lower() for term in ["bank", "institution", "customer", "employee"]):
+            if any(term in actor.lower() for term in [
+                "bank", "institution", "customer", "employee",
+                "officer", "staff", "person", "individual",
+            ]):
                 score += 0.05
 
         # Action extraction quality
         if action and action != "comply":
             score += 0.1
-            # Bonus for specific action verbs
-            if any(verb in action.lower() for verb in ["verify", "report", "maintain", "submit"]):
+            # Bonus for specific AML/KYC action verbs
+            if any(verb in action.lower() for verb in [
+                "verify", "report", "maintain", "submit", "identify",
+                "monitor", "file", "retain", "collect", "conduct",
+                "establish", "assign", "update", "check", "review",
+            ]):
                 score += 0.05
 
         # Object presence
@@ -483,20 +504,78 @@ class MockLLMClient(BaseLLMClient):
             return match.group(1)
         return "comply"
 
+    # AML/KYC domain entities — map verbose phrases to concise schema terms
+    _ENTITY_NORMALIZATIONS: dict[str, str] = {
+        "the identity of": "identity",
+        "identity of": "identity",
+        "customer identity": "customer identity",
+        "customer identification": "customer identity",
+        "beneficial owner": "beneficial owner",
+        "beneficial owners": "beneficial owner",
+        "risk profile": "risk profile",
+        "risk profiles": "risk profile",
+        "risk rating": "risk level",
+        "risk ratings": "risk level",
+        "risk level": "risk level",
+        "suspicious activity report": "suspicious activity",
+        "suspicious activity reports": "suspicious activity",
+        "suspicious activity": "suspicious activity",
+        "suspicious transaction": "suspicious activity",
+        "customer information": "customer records",
+        "customer records": "customer records",
+        "identification information": "customer identity",
+        "account opening": "account",
+        "business relationship": "account",
+        "due diligence": "due diligence",
+        "enhanced due diligence": "due diligence",
+        "written procedures": "procedures",
+        "compliance program": "procedures",
+        "government-issued identification": "identity document",
+        "sanctions list": "sanctions list",
+    }
+
+    def _normalize_object(self, raw_obj: str) -> str:
+        """Normalize extracted object to a concise domain entity."""
+        obj_lower = raw_obj.lower().strip()
+        # Check domain entity normalizations (longest match first)
+        for phrase, normalized in sorted(
+            self._ENTITY_NORMALIZATIONS.items(), key=lambda x: -len(x[0])
+        ):
+            if phrase in obj_lower:
+                return normalized
+        # Fallback: truncate to 4 words
+        words = raw_obj.strip().split()[:4]
+        return " ".join(words)
+
     def _extract_object(self, text: str) -> str | None:
-        """Extract object from text."""
-        # Simple pattern: words after action verb
-        patterns = [
-            r"(?:verify|maintain|report|submit|provide|ensure)\s+([\w\s]+?)(?:\.|,|$)",
-            r"(?:must|shall)\s+\w+\s+([\w\s]+?)(?:\.|,|$)",
+        """Extract object from text, normalized to schema-mappable entities."""
+        # AML-specific patterns first (more precise)
+        aml_patterns = [
+            r"(?:verify|check|confirm)\s+(?:the\s+)?(.+?)(?:\s+(?:of|for|before|within|using)\b|[.,;]|$)",
+            r"(?:identify|determine)\s+(?:the\s+)?(.+?)(?:\s+(?:of|for|and)\b|[.,;]|$)",
+            r"(?:monitor|review|scrutinize)\s+(.+?)(?:\s+(?:to|for|in order)\b|[.,;]|$)",
+            r"(?:file|submit|report)\s+(.+?)(?:\s+(?:for|to|when|with)\b|[.,;]|$)",
+            r"(?:maintain|retain|keep)\s+(.+?)(?:\s+(?:for|of|after)\b|[.,;]|$)",
+            r"(?:collect|obtain|gather)\s+(?:the\s+)?(.+?)(?:\s+(?:at|from|of)\b|[.,;]|$)",
+            r"(?:conduct|perform|undertake)\s+(.+?)(?:\s+(?:for|on|when)\b|[.,;]|$)",
+            r"(?:assign|update|develop)\s+(.+?)(?:\s+(?:to|for|on|using)\b|[.,;]|$)",
+            r"(?:establish|implement|create)\s+(.+?)(?:\s+(?:for|appropriate|in)\b|[.,;]|$)",
         ]
-        for pattern in patterns:
+        for pattern in aml_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
-                obj = match.group(1).strip()
-                # Limit length
-                words = obj.split()[:5]
-                return " ".join(words)
+                raw = match.group(1).strip()
+                return self._normalize_object(raw)
+
+        # Generic fallback
+        generic_patterns = [
+            r"(?:must|shall)\s+(?:not\s+)?\w+\s+([\w\s]+?)(?:\.|,|$)",
+        ]
+        for pattern in generic_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                raw = match.group(1).strip()
+                return self._normalize_object(raw)
         return None
 
     def _extract_condition(self, text: str) -> dict[str, str] | None:

@@ -1,0 +1,38 @@
+# Source: Institutions must perform CDD when carrying out occasional transactions above th...
+# Clause ID: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S004_C000_CL002
+# Generated: 2026-02-11T18:36:03.780433+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S004_C000_CL002
+  type: ClauseType.OBLIGATION
+  rule: "perform CDD"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "perform"
+
+
+
+  object:
+    entity: "CDD"
+
+
+
+
+  trigger:
+    event: "carrying out occasional transactions above the applicable designated threshold of USD 15"
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_2F3583"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v0.1.0"

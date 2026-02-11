@@ -1,0 +1,34 @@
+# Source: Financial institutions must establish and maintain written procedures for verify...
+# Clause ID: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S005_C000_CL001
+# Generated: 2026-02-11T18:36:04.772781+00:00
+# Confidence: 0.5
+
+control:
+  id: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S005_C000_CL001
+  type: ClauseType.OBLIGATION
+  rule: "establish procedures"
+
+  actor:
+    entity: "Financial institutions"
+
+
+  action:
+    operation: "establish"
+
+
+
+  object:
+    entity: "procedures"
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FINCEN_CDD_RULE_FF6162"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v0.1.0"

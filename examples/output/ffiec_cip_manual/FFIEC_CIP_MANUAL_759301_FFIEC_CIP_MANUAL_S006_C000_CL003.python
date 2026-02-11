@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S006_C000_CL003
+
+Source: Institutions must retain records of the methods used and results of an...
+Generated: 2026-02-11T18:36:04.477914+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S006_C000_CL003:
+    """Test cases for ClauseType.OBLIGATION rule: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S006_C000_CL003"""
+
+    @pytest.fixture
+    def compliant_institutions(self):
+        """Create a compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_001",
+
+            "retain_status": True,
+
+
+            "records": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_institutions(self):
+        """Create a non-compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_002",
+
+            "retain_status": False,
+
+
+            "records": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_retain_obligation_met(
+        self, compliant_institutions
+    ):
+        """Test that obligation is satisfied when retain is performed."""
+        entity = compliant_institutions
+
+        # Assert obligation is met
+        assert entity["retain_status"] is True, \
+            "Institutions must retain records"
+
+    def test_retain_obligation_violated(
+        self, non_compliant_institutions
+    ):
+        """Test that violation is detected when retain is not performed."""
+        entity = non_compliant_institutions
+
+        # Assert obligation is violated
+        assert entity["retain_status"] is False, \
+            "Expected violation when Institutions does not retain"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S006_C000_CL003"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Institutions must retain records of the methods used and results of any non-documentary verification measures."""
+CONFIDENCE = 0.5

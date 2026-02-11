@@ -168,6 +168,60 @@ class MappedClause(BaseModel):
     mapping_status: MappingStatus = Field(..., description="Overall mapping status")
 
 
+class MappingQualityReport(BaseModel):
+    """Quality metrics for a batch of entity mappings."""
+
+    total_clauses: int = Field(0, description="Total clauses processed")
+    total_entities: int = Field(0, description="Total entities across all clauses")
+    mapped_entities: int = Field(0, description="Entities successfully mapped")
+    unmapped_entities: int = Field(0, description="Entities that could not be mapped")
+    mapping_rate_pct: float = Field(0.0, description="% of entities mapped")
+    average_confidence: float = Field(0.0, description="Mean confidence of mapped entities")
+    method_distribution: dict[str, int] = Field(
+        default_factory=dict,
+        description="Count of mappings by method (exact, synonym, semantic, etc.)",
+    )
+    status_distribution: dict[str, int] = Field(
+        default_factory=dict,
+        description="Count of clauses by mapping status",
+    )
+
+    @classmethod
+    def from_clauses(cls, clauses: list["MappedClause"]) -> "MappingQualityReport":
+        """Compute quality metrics from a list of mapped clauses."""
+        total_entities = 0
+        mapped_count = 0
+        confidences: list[float] = []
+        methods: dict[str, int] = {}
+        statuses: dict[str, int] = {}
+
+        for clause in clauses:
+            status = clause.mapping_status.value
+            statuses[status] = statuses.get(status, 0) + 1
+
+            total_entities += len(clause.mapped_entities) + len(clause.unmapped_entities)
+            mapped_count += len(clause.mapped_entities)
+
+            for em in clause.mapped_entities:
+                confidences.append(em.confidence)
+                method = em.mapping_method.value
+                methods[method] = methods.get(method, 0) + 1
+
+        mapping_rate = (mapped_count / max(total_entities, 1)) * 100
+        avg_conf = sum(confidences) / max(len(confidences), 1)
+
+        return cls(
+            total_clauses=len(clauses),
+            total_entities=total_entities,
+            mapped_entities=mapped_count,
+            unmapped_entities=total_entities - mapped_count,
+            mapping_rate_pct=round(mapping_rate, 1),
+            average_confidence=round(avg_conf, 3),
+            method_distribution=methods,
+            status_distribution=statuses,
+        )
+
+
 class MappedClauseCollection(BaseModel):
     """Collection of mapped clauses."""
 
@@ -177,6 +231,9 @@ class MappedClauseCollection(BaseModel):
         default_factory=list, description="Mapped clauses"
     )
     mapping_timestamp: str = Field(..., description="ISO 8601 timestamp")
+    quality_report: MappingQualityReport | None = Field(
+        default=None, description="Quality metrics for this mapping batch"
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -768,20 +825,24 @@ class SchemaMappingAgent:
             mapped = self.map_clause(clause, target_schema_id)
             mapped_clauses.append(mapped)
 
+        quality = MappingQualityReport.from_clauses(mapped_clauses)
+
         collection = MappedClauseCollection(
             doc_id=doc_id,
             target_schema=target_schema_id or "default",
             clauses=mapped_clauses,
             mapping_timestamp=datetime.now(timezone.utc).isoformat(),
+            quality_report=quality,
         )
 
         logger.info(
             "collection_mapped",
             doc_id=doc_id,
-            total_clauses=len(mapped_clauses),
-            complete=sum(1 for c in mapped_clauses if c.mapping_status == MappingStatus.COMPLETE),
-            partial=sum(1 for c in mapped_clauses if c.mapping_status == MappingStatus.PARTIAL),
-            needs_review=sum(1 for c in mapped_clauses if c.mapping_status == MappingStatus.NEEDS_REVIEW),
+            total_clauses=quality.total_clauses,
+            mapping_rate_pct=quality.mapping_rate_pct,
+            avg_confidence=quality.average_confidence,
+            methods=quality.method_distribution,
+            statuses=quality.status_distribution,
         )
 
         return collection

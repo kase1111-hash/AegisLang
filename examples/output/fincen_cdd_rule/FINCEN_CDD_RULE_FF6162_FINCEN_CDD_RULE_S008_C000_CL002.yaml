@@ -1,0 +1,36 @@
+# Source: Banks shall monitor transactions to identify suspicious activity consistent with...
+# Clause ID: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S008_C000_CL002
+# Generated: 2026-02-11T18:36:04.994578+00:00
+# Confidence: 0.85
+
+control:
+  id: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S008_C000_CL002
+  type: ClauseType.OBLIGATION
+  rule: "monitor suspicious activity"
+
+  actor:
+    entity: "Banks"
+
+
+  action:
+    operation: "monitor"
+
+
+
+  object:
+    entity: "suspicious activity"
+
+    mapped_to: "transactions.suspicious_flag"
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FINCEN_CDD_RULE_FF6162"
+    confidence: 0.85
+    generated_by: "aegislang-compiler-v0.1.0"

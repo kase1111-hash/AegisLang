@@ -1,0 +1,34 @@
+# Source: Each bank must implement a written Customer Identification Program appropriate f...
+# Clause ID: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S004_C000_CL001
+# Generated: 2026-02-11T18:36:04.285909+00:00
+# Confidence: 0.5
+
+control:
+  id: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S004_C000_CL001
+  type: ClauseType.OBLIGATION
+  rule: "implement customer identity"
+
+  actor:
+    entity: "Each bank"
+
+
+  action:
+    operation: "implement"
+
+
+
+  object:
+    entity: "customer identity"
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FFIEC_CIP_MANUAL_759301"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v0.1.0"

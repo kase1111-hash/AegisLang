@@ -1,0 +1,30 @@
+# Source: Countries may allow financial institutions to apply simplified CDD measures wher...
+# Clause ID: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S007_C000_CL001
+# Generated: 2026-02-11T18:36:04.008634+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_2F3583_FATF_RECOMMENDATION_10_S007_C000_CL001
+  type: ClauseType.PERMISSION
+  rule: "allow"
+
+  actor:
+    entity: "Countries"
+
+
+  action:
+    operation: "allow"
+
+
+
+
+
+
+
+
+  severity: medium
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_2F3583"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v0.1.0"

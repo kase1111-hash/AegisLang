@@ -1,0 +1,81 @@
+"""
+Test for compliance rule: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S009_C000_CL001
+
+Source: Financial institutions must maintain records of customer identificatio...
+Generated: 2026-02-11T18:36:05.054508+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S009_C000_CL001:
+    """Test cases for ClauseType.OBLIGATION rule: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S009_C000_CL001"""
+
+    @pytest.fixture
+    def compliant_financial_institutions(self):
+        """Create a compliant Financial institutions fixture."""
+        return {
+            "id": "test_financial_institutions_001",
+
+            "maintain_status": True,
+
+
+            "records": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_financial_institutions(self):
+        """Create a non-compliant Financial institutions fixture."""
+        return {
+            "id": "test_financial_institutions_002",
+
+            "maintain_status": False,
+
+
+            "records": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_maintain_obligation_met(
+        self, compliant_financial_institutions
+    ):
+        """Test that obligation is satisfied when maintain is performed."""
+        entity = compliant_financial_institutions
+
+        # Assert obligation is met
+        assert entity["maintain_status"] is True, \
+            "Financial institutions must maintain records"
+
+    def test_maintain_obligation_violated(
+        self, non_compliant_financial_institutions
+    ):
+        """Test that violation is detected when maintain is not performed."""
+        entity = non_compliant_financial_institutions
+
+        # Assert obligation is violated
+        assert entity["maintain_status"] is False, \
+            "Expected violation when Financial institutions does not maintain"
+
+
+
+
+    def test_condition_trigger(self):
+        """Test that rule applies when condition 'account closure' is met."""
+        # TODO: Implement condition testing for: account closure
+        pytest.skip("Condition testing not yet implemented")
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S009_C000_CL001"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Financial institutions must maintain records of customer identification information for five years after account closure."""
+CONFIDENCE = 0.5

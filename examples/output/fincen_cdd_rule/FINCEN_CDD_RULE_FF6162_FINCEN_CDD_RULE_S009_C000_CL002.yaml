@@ -1,0 +1,40 @@
+# Source: Institutions shall retain beneficial ownership information for five years after ...
+# Clause ID: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S009_C000_CL002
+# Generated: 2026-02-11T18:36:05.067359+00:00
+# Confidence: 0.95
+
+control:
+  id: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S009_C000_CL002
+  type: ClauseType.OBLIGATION
+  rule: "retain beneficial owner"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "retain"
+
+
+
+  object:
+    entity: "beneficial owner"
+
+    mapped_to: "customers.beneficial_owner"
+
+
+
+
+  trigger:
+    event: "the date the account is closed"
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FINCEN_CDD_RULE_FF6162"
+    confidence: 0.95
+    generated_by: "aegislang-compiler-v0.1.0"

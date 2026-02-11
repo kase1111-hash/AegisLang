@@ -1,0 +1,30 @@
+# Source: The relied-upon institution must be subject to a rule implementing the BSA/AML c...
+# Clause ID: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S009_C000_CL002
+# Generated: 2026-02-11T18:36:04.659014+00:00
+# Confidence: 0.5
+
+control:
+  id: FFIEC_CIP_MANUAL_759301_FFIEC_CIP_MANUAL_S009_C000_CL002
+  type: ClauseType.OBLIGATION
+  rule: "be"
+
+  actor:
+    entity: "unspecified entity"
+
+
+  action:
+    operation: "be"
+
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FFIEC_CIP_MANUAL_759301"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v0.1.0"

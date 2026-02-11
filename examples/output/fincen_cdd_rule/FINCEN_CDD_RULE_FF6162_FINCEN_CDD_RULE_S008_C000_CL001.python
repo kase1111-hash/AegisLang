@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S008_C000_CL001
+
+Source: Institutions must conduct ongoing monitoring to maintain and update cu...
+Generated: 2026-02-11T18:36:04.981621+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S008_C000_CL001:
+    """Test cases for ClauseType.OBLIGATION rule: FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S008_C000_CL001"""
+
+    @pytest.fixture
+    def compliant_institutions(self):
+        """Create a compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_001",
+
+            "conduct_status": True,
+
+
+            "customer_records": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_institutions(self):
+        """Create a non-compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_002",
+
+            "conduct_status": False,
+
+
+            "customer_records": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_conduct_obligation_met(
+        self, compliant_institutions
+    ):
+        """Test that obligation is satisfied when conduct is performed."""
+        entity = compliant_institutions
+
+        # Assert obligation is met
+        assert entity["conduct_status"] is True, \
+            "Institutions must conduct customer records"
+
+    def test_conduct_obligation_violated(
+        self, non_compliant_institutions
+    ):
+        """Test that violation is detected when conduct is not performed."""
+        entity = non_compliant_institutions
+
+        # Assert obligation is violated
+        assert entity["conduct_status"] is False, \
+            "Expected violation when Institutions does not conduct"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FINCEN_CDD_RULE_FF6162_FINCEN_CDD_RULE_S008_C000_CL001"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Institutions must conduct ongoing monitoring to maintain and update customer information."""
+CONFIDENCE = 0.5
