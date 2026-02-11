@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 
 logger = structlog.get_logger(__name__)
 
-VERSION = "1.0.0"
+VERSION = "0.1.0"
 
 
 # -----------------------------------------------------------------------------

@@ -2,93 +2,122 @@
 
 **Language in. Compliance out.**
 
-AegisLang is a multi-agent semantic compiler that transforms natural-language policy documents (regulations, SOPs, governance rules) into executable control logic — YAML rules, SQL constraints, and Python checks — with full clause-to-artifact traceability.
+AegisLang is a multi-agent semantic compiler that transforms natural-language policy documents into executable control logic with full clause-to-artifact traceability. Feed it a regulation (PDF, DOCX, Markdown, or HTML), and it produces YAML rules, SQL constraints, and Python compliance tests — each linked back to its source clause.
 
-## Purpose
-
-- Convert policy documents to machine-enforceable rules automatically
-- Maintain traceability from source regulation to generated artifact
-- Support multiple output formats (YAML, SQL, Python)
-
-## Core Flow
+## How It Works
 
 ```
 policy_doc → AegisIngestor → PolicyParser → SchemaMapper → Compiler → TraceValidator
 ```
 
-1. **Ingest** — parse PDF, DOCX, Markdown, or HTML into structured sections
-2. **Parse** — extract clauses with type detection (obligation, prohibition, permission, conditional)
-3. **Map** — align policy entities to target database schema via synonym + semantic matching
-4. **Compile** — emit YAML, SQL, and Python artifacts from Jinja2 templates
-5. **Validate** — verify clause-to-artifact traceability and provenance
-
-## Example Output
-
-```yaml
-control:
-  id: KYC-102
-  source: "AML Reg §5.3"
-  rule: "Verify customer identity for all accounts > $5,000"
-  emit: "identity_check_routine()"
-```
-
-## Features
-
-- **Full clause-to-code traceability** — every artifact links back to its source clause
-- **Plug-in compiler templates** for YAML, SQL, and Python output
-- **LLM-driven schema mapping** (Anthropic / OpenAI) — no hard-coded entity rules
-- **Mock mode** for offline development and testing without LLM API keys
-- **Configurable template system** via Jinja2
+| Stage | Agent | Input | Output |
+|-------|-------|-------|--------|
+| **L1 Ingest** | `AegisIngestor` | Raw document (PDF/DOCX/MD/HTML) | Structured sections + text chunks |
+| **L2 Parse** | `PolicyParserAgent` | Text chunks | Typed clauses (obligation/prohibition/permission/conditional) |
+| **L3 Map** | `SchemaMappingAgent` | Parsed clauses | Entity-to-schema-field mappings |
+| **L4 Compile** | `CompilerAgent` | Mapped clauses | YAML, SQL, Python artifacts via Jinja2 templates |
+| **L5 Validate** | `TraceValidatorAgent` | Artifacts + source data | Provenance traces + validation results |
 
 ## Current Status
 
-AegisLang is an early-stage prototype. The core pipeline works end-to-end with mock LLM clients. Real LLM integration (Anthropic, OpenAI) is implemented but not yet validated against real regulatory documents.
+**Version: 0.1.0 (Alpha)**
 
-## Roadmap
-
-- RAG-based policy retrieval
-- Continuous rule drift detection
-- Persistent storage (SQLite) for the API layer
-- Domain-specific prompt tuning (AML/KYC)
+| What works | What doesn't (yet) |
+|------------|-------------------|
+| Full 5-stage pipeline end-to-end | Real LLM extraction not validated on production docs |
+| Mock LLM mode for offline dev/testing | Schema mapping depends on LLM entity extraction quality |
+| PDF, DOCX, Markdown, HTML ingestion | No persistent storage (in-memory only) |
+| YAML, SQL, Python artifact generation | SQL artifacts reference generic tables without mapping |
+| Clause-to-artifact traceability (100%) | Cross-reference resolution between clauses |
+| REST API with OpenAPI docs | No web UI |
+| 139 tests, all passing | No output regression tests from real documents |
 
 ## Quick Start
 
 ```bash
+# Install
 pip install -r requirements.txt
+
+# Run the API server
 python -m aegislang.api.server
+
+# Or run the AML pipeline demo
+python examples/run_aml_pipeline.py
 ```
 
-AegisLang can integrate with Agent-OS for event-driven pipeline orchestration.
+The API serves at `http://localhost:8080` with Swagger docs at `/docs`.
 
----
+## Supported Domain: AML/KYC
 
-## Setup Guide
+AegisLang has been evaluated against Anti-Money Laundering / Know Your Customer regulations:
 
-### Phase 1: Project Foundation
-- [x] Create project directory structure
-- [x] Create `requirements.txt` with dependencies
-- [x] Create `config.yaml` configuration file
-- [x] Set up environment variables (`.env.example`)
+- **FinCEN CDD Rule** (31 CFR 1010.230)
+- **FFIEC BSA/AML CIP Manual**
+- **FATF Recommendation 10**
 
-### Phase 2: Core Agents Implementation
-- [x] Implement L1 Ingestion Layer (`aegis_ingestor.py`)
-- [x] Implement L2 Parsing Layer (`policy_parser_agent.py`)
-- [x] Implement L3 Mapping Layer (`schema_mapping_agent.py`)
-- [x] Implement L4 Compilation Layer (`compiler_agent.py`)
-- [x] Implement L5 Validation Layer (`trace_validator_agent.py`)
+Pipeline results (mock LLM mode):
 
-### Phase 3: Templates & Output Formats
-- [x] Create YAML templates (`templates/yaml/`)
-- [x] Create SQL templates (`templates/sql/`)
-- [x] Create Python test templates (`templates/python/`)
+| Metric | Result |
+|--------|--------|
+| Documents processed | 3 |
+| Clauses extracted | 49 |
+| Artifacts generated | 147 (YAML + SQL + Python) |
+| Clause type detection | 40 obligation, 5 permission, 2 prohibition, 2 conditional |
+| Traceability | 100% — every artifact links to source clause |
 
-### Phase 4: API & Deployment
-- [x] Implement REST API server
-- [x] Create Dockerfile
-- [x] Create docker-compose.yml
-- [x] Set up CI/CD pipeline
+See [`examples/aml_evaluation.md`](examples/aml_evaluation.md) for the full quality assessment.
 
-### Phase 5: Testing & Documentation
-- [x] Write unit tests
-- [x] Write integration tests
-- [x] Create API documentation
+## Architecture
+
+```
+aegislang/
+├── agents/                  # Pipeline agents (L1-L5)
+│   ├── aegis_ingestor.py    # L1: Document ingestion + chunking
+│   ├── policy_parser_agent.py   # L2: Clause extraction (LLM-driven)
+│   ├── schema_mapping_agent.py  # L3: Entity-to-schema mapping
+│   ├── compiler_agent.py    # L4: Artifact generation (Jinja2)
+│   └── trace_validator_agent.py # L5: Provenance validation
+├── api/
+│   └── server.py            # FastAPI REST API
+├── core/
+│   ├── errors.py            # Error handling
+│   └── logging.py           # Structured logging (structlog)
+└── templates/               # Jinja2 compilation templates
+    ├── yaml/
+    ├── sql/
+    └── python/
+```
+
+Each agent is independently testable with mock providers. The `use_mock=True` flag on parser and mapper agents enables offline development without LLM API keys.
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/health` | Health check |
+| `POST` | `/api/v1/ingest` | Upload and ingest a document |
+| `GET` | `/api/v1/documents` | List all documents |
+| `GET` | `/api/v1/documents/{doc_id}` | Get document details |
+| `GET` | `/api/v1/clauses/{doc_id}` | Get extracted clauses |
+| `POST` | `/api/v1/compile` | Compile document to artifacts |
+| `POST` | `/api/v1/schemas` | Register a target schema |
+| `GET` | `/api/v1/schemas` | List registered schemas |
+| `GET` | `/api/v1/jobs/{job_id}` | Check async job status |
+
+## Roadmap
+
+See [`ROADMAP.md`](ROADMAP.md) for planned features.
+
+## Contributing
+
+```bash
+# Run tests
+python -m pytest tests/ -v
+
+# Install optional ML dependencies (for SentenceTransformer embeddings)
+pip install -r requirements-ml.txt
+```
+
+## License
+
+MIT
