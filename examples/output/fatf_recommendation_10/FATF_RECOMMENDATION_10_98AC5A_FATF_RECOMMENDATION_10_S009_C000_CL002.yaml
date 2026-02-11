@@ -1,0 +1,30 @@
+# Source: Institutions must satisfy themselves that the third party is regulated and super...
+# Clause ID: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S009_C000_CL002
+# Generated: 2026-02-11T18:21:28.947951+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S009_C000_CL002
+  type: ClauseType.OBLIGATION
+  rule: "satisfy"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "satisfy"
+
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_98AC5A"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

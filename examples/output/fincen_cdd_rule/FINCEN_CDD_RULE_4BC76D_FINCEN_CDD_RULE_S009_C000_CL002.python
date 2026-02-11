@@ -1,0 +1,81 @@
+"""
+Test for compliance rule: FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S009_C000_CL002
+
+Source: Institutions shall retain beneficial ownership information for five ye...
+Generated: 2026-02-11T18:21:29.888093+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S009_C000_CL002:
+    """Test cases for ClauseType.OBLIGATION rule: FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S009_C000_CL002"""
+
+    @pytest.fixture
+    def compliant_institutions(self):
+        """Create a compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_001",
+
+            "retain_status": True,
+
+
+            "beneficial_ownership_information_for_five": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_institutions(self):
+        """Create a non-compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_002",
+
+            "retain_status": False,
+
+
+            "beneficial_ownership_information_for_five": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_retain_obligation_met(
+        self, compliant_institutions
+    ):
+        """Test that obligation is satisfied when retain is performed."""
+        entity = compliant_institutions
+
+        # Assert obligation is met
+        assert entity["retain_status"] is True, \
+            "Institutions must retain beneficial ownership information for five"
+
+    def test_retain_obligation_violated(
+        self, non_compliant_institutions
+    ):
+        """Test that violation is detected when retain is not performed."""
+        entity = non_compliant_institutions
+
+        # Assert obligation is violated
+        assert entity["retain_status"] is False, \
+            "Expected violation when Institutions does not retain"
+
+
+
+
+    def test_condition_trigger(self):
+        """Test that rule applies when condition 'the date the account is closed' is met."""
+        # TODO: Implement condition testing for: the date the account is closed
+        pytest.skip("Condition testing not yet implemented")
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S009_C000_CL002"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Institutions shall retain beneficial ownership information for five years after the date the account is closed."""
+CONFIDENCE = 0.5

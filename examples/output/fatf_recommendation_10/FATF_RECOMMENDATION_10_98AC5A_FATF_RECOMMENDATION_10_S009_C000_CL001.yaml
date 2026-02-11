@@ -1,0 +1,30 @@
+# Source: Countries may permit financial institutions to rely on third parties to perform ...
+# Clause ID: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S009_C000_CL001
+# Generated: 2026-02-11T18:21:28.921912+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S009_C000_CL001
+  type: ClauseType.PERMISSION
+  rule: "permit"
+
+  actor:
+    entity: "Countries"
+
+
+  action:
+    operation: "permit"
+
+
+
+
+
+
+
+
+  severity: medium
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_98AC5A"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

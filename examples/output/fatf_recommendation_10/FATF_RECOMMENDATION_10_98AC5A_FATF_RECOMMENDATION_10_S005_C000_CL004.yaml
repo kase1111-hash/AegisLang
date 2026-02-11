@@ -1,0 +1,30 @@
+# Source: Institutions must conduct ongoing due diligence on the business relationship and...
+# Clause ID: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S005_C000_CL004
+# Generated: 2026-02-11T18:21:28.693240+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S005_C000_CL004
+  type: ClauseType.OBLIGATION
+  rule: "conduct"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "conduct"
+
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_98AC5A"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

@@ -1,0 +1,34 @@
+# Source: Institutions shall consider making a suspicious transaction report when CDD cann...
+# Clause ID: FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S008_C000_CL002
+# Generated: 2026-02-11T18:20:55.375010+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S008_C000_CL002
+  type: ClauseType.OBLIGATION
+  rule: "consider when CDD cannot be completed"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "consider"
+
+
+
+  object:
+    entity: "when CDD cannot be completed"
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_2A2FA7"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

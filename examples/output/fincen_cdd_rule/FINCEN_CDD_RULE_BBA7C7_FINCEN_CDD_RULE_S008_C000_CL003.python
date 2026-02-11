@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S008_C000_CL003
+
+Source: Staff must file Suspicious Activity Reports for transactions that are ...
+Generated: 2026-02-11T18:20:56.313220+00:00
+Confidence: 0.95
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S008_C000_CL003:
+    """Test cases for ClauseType.OBLIGATION rule: FINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S008_C000_CL003"""
+
+    @pytest.fixture
+    def compliant_staff(self):
+        """Create a compliant Staff fixture."""
+        return {
+            "id": "test_staff_001",
+
+            "file_status": True,
+
+
+            "suspicious_activity_reports_for_transactions": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_staff(self):
+        """Create a non-compliant Staff fixture."""
+        return {
+            "id": "test_staff_002",
+
+            "file_status": False,
+
+
+            "suspicious_activity_reports_for_transactions": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_file_obligation_met(
+        self, compliant_staff
+    ):
+        """Test that obligation is satisfied when file is performed."""
+        entity = compliant_staff
+
+        # Assert obligation is met
+        assert entity["file_status"] is True, \
+            "Staff must file Suspicious Activity Reports for transactions"
+
+    def test_file_obligation_violated(
+        self, non_compliant_staff
+    ):
+        """Test that violation is detected when file is not performed."""
+        entity = non_compliant_staff
+
+        # Assert obligation is violated
+        assert entity["file_status"] is False, \
+            "Expected violation when Staff does not file"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S008_C000_CL003"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Staff must file Suspicious Activity Reports for transactions that are suspicious or have no lawful purpose."""
+CONFIDENCE = 0.95

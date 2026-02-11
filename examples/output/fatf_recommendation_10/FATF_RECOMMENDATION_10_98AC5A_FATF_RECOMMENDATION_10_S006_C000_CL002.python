@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S006_C000_CL002
+
+Source: Politically exposed persons must be subject to enhanced due diligence ...
+Generated: 2026-02-11T18:21:28.755834+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S006_C000_CL002:
+    """Test cases for ClauseType.OBLIGATION rule: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S006_C000_CL002"""
+
+    @pytest.fixture
+    def compliant_politically_exposed_persons(self):
+        """Create a compliant Politically exposed persons fixture."""
+        return {
+            "id": "test_politically_exposed_persons_001",
+
+            "be_status": True,
+
+
+            "subject_to_enhanced_due_diligence": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_politically_exposed_persons(self):
+        """Create a non-compliant Politically exposed persons fixture."""
+        return {
+            "id": "test_politically_exposed_persons_002",
+
+            "be_status": False,
+
+
+            "subject_to_enhanced_due_diligence": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_be_obligation_met(
+        self, compliant_politically_exposed_persons
+    ):
+        """Test that obligation is satisfied when be is performed."""
+        entity = compliant_politically_exposed_persons
+
+        # Assert obligation is met
+        assert entity["be_status"] is True, \
+            "Politically exposed persons must be subject to enhanced due diligence"
+
+    def test_be_obligation_violated(
+        self, non_compliant_politically_exposed_persons
+    ):
+        """Test that violation is detected when be is not performed."""
+        entity = non_compliant_politically_exposed_persons
+
+        # Assert obligation is violated
+        assert entity["be_status"] is False, \
+            "Expected violation when Politically exposed persons does not be"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S006_C000_CL002"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Politically exposed persons must be subject to enhanced due diligence measures including senior management approval for establishing the business relationship."""
+CONFIDENCE = 0.5

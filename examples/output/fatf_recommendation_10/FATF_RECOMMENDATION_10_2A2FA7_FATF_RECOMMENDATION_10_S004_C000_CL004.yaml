@@ -1,0 +1,34 @@
+# Source: Institutions shall perform CDD when there are doubts about the veracity of previ...
+# Clause ID: FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S004_C000_CL004
+# Generated: 2026-02-11T18:20:55.096235+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S004_C000_CL004
+  type: ClauseType.OBLIGATION
+  rule: "perform CDD when there are doubts"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "perform"
+
+
+
+  object:
+    entity: "CDD when there are doubts"
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_2A2FA7"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

@@ -1,0 +1,35 @@
+{
+  "document": "fincen_cdd_rule",
+  "source_path": "/home/user/AegisLang/examples/regulations/fincen_cdd_rule.md",
+  "ingestion": {
+    "sections": 9,
+    "total_chunks": 5
+  },
+  "parsing": {
+    "total_clauses": 14,
+    "clause_types": {
+      "obligation": 13,
+      "prohibition": 1
+    }
+  },
+  "mapping": {
+    "target_schema": "aml_schema",
+    "fully_mapped": 0,
+    "partially_mapped": 1,
+    "unmapped": 13
+  },
+  "compilation": {
+    "artifact_counts": {
+      "yaml": 14,
+      "sql": 14,
+      "python": 14
+    },
+    "total_artifacts": 42
+  },
+  "validation": {
+    "total": 42,
+    "passed": 28,
+    "failed": 14,
+    "needs_review": 0
+  }
+}

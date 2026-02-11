@@ -1,0 +1,30 @@
+# Source: Institutions must retain records of the methods used and results of any non-docu...
+# Clause ID: FFIEC_CIP_MANUAL_A88D37_FFIEC_CIP_MANUAL_S006_C000_CL003
+# Generated: 2026-02-11T18:20:55.734459+00:00
+# Confidence: 0.5
+
+control:
+  id: FFIEC_CIP_MANUAL_A88D37_FFIEC_CIP_MANUAL_S006_C000_CL003
+  type: ClauseType.OBLIGATION
+  rule: "retain"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "retain"
+
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FFIEC_CIP_MANUAL_A88D37"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

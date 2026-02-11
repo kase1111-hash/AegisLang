@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S009_C000_CL003
+
+Source: Banks must enter into a written agreement with the other institution s...
+Generated: 2026-02-11T18:21:29.481818+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S009_C000_CL003:
+    """Test cases for ClauseType.OBLIGATION rule: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S009_C000_CL003"""
+
+    @pytest.fixture
+    def compliant_banks(self):
+        """Create a compliant Banks fixture."""
+        return {
+            "id": "test_banks_001",
+
+            "enter_status": True,
+
+
+            "into_a_written_agreement_with": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_banks(self):
+        """Create a non-compliant Banks fixture."""
+        return {
+            "id": "test_banks_002",
+
+            "enter_status": False,
+
+
+            "into_a_written_agreement_with": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_enter_obligation_met(
+        self, compliant_banks
+    ):
+        """Test that obligation is satisfied when enter is performed."""
+        entity = compliant_banks
+
+        # Assert obligation is met
+        assert entity["enter_status"] is True, \
+            "Banks must enter into a written agreement with"
+
+    def test_enter_obligation_violated(
+        self, non_compliant_banks
+    ):
+        """Test that violation is detected when enter is not performed."""
+        entity = non_compliant_banks
+
+        # Assert obligation is violated
+        assert entity["enter_status"] is False, \
+            "Expected violation when Banks does not enter"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S009_C000_CL003"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Banks must enter into a written agreement with the other institution specifying the delegated CIP procedures."""
+CONFIDENCE = 0.5

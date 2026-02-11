@@ -1,0 +1,34 @@
+# Source: Institutions must document the risk assessment that justifies the application of...
+# Clause ID: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S007_C000_CL003
+# Generated: 2026-02-11T18:21:28.817056+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S007_C000_CL003
+  type: ClauseType.OBLIGATION
+  rule: "document the risk assessment that justifies"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "document"
+
+
+
+  object:
+    entity: "the risk assessment that justifies"
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_98AC5A"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

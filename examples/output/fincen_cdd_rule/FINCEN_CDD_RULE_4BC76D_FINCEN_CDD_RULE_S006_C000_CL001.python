@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S006_C000_CL001
+
+Source: Covered financial institutions must identify and verify the identity o...
+Generated: 2026-02-11T18:21:29.661968+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S006_C000_CL001:
+    """Test cases for ClauseType.OBLIGATION rule: FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S006_C000_CL001"""
+
+    @pytest.fixture
+    def compliant_covered_financial_institutions(self):
+        """Create a compliant Covered financial institutions fixture."""
+        return {
+            "id": "test_covered_financial_institutions_001",
+
+            "identify_status": True,
+
+
+            "the_identity_of_beneficial_owners": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_covered_financial_institutions(self):
+        """Create a non-compliant Covered financial institutions fixture."""
+        return {
+            "id": "test_covered_financial_institutions_002",
+
+            "identify_status": False,
+
+
+            "the_identity_of_beneficial_owners": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_identify_obligation_met(
+        self, compliant_covered_financial_institutions
+    ):
+        """Test that obligation is satisfied when identify is performed."""
+        entity = compliant_covered_financial_institutions
+
+        # Assert obligation is met
+        assert entity["identify_status"] is True, \
+            "Covered financial institutions must identify the identity of beneficial owners"
+
+    def test_identify_obligation_violated(
+        self, non_compliant_covered_financial_institutions
+    ):
+        """Test that violation is detected when identify is not performed."""
+        entity = non_compliant_covered_financial_institutions
+
+        # Assert obligation is violated
+        assert entity["identify_status"] is False, \
+            "Expected violation when Covered financial institutions does not identify"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S006_C000_CL001"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Covered financial institutions must identify and verify the identity of beneficial owners of legal entity customers."""
+CONFIDENCE = 0.5

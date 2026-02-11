@@ -1,0 +1,30 @@
+# Source: Institutions shall check customer names against the Office of Foreign Assets Con...
+# Clause ID: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S007_C000_CL002
+# Generated: 2026-02-11T18:21:29.290405+00:00
+# Confidence: 0.5
+
+control:
+  id: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S007_C000_CL002
+  type: ClauseType.OBLIGATION
+  rule: "check"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "check"
+
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FFIEC_CIP_MANUAL_B2BFE2"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

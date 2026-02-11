@@ -1,0 +1,38 @@
+# Source: Records shall include a description of any document relied upon for identity ver...
+# Clause ID: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S006_C000_CL002
+# Generated: 2026-02-11T18:21:29.213309+00:00
+# Confidence: 0.5
+
+control:
+  id: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S006_C000_CL002
+  type: ClauseType.OBLIGATION
+  rule: "include a description of any document"
+
+  actor:
+    entity: "Records"
+
+
+  action:
+    operation: "include"
+
+
+
+  object:
+    entity: "a description of any document"
+
+
+
+
+  trigger:
+    event: "for identity verification"
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FFIEC_CIP_MANUAL_B2BFE2"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

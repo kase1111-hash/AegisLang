@@ -1,0 +1,30 @@
+# Source: Banks must verify the identity of each customer using documentary or non-documen...
+# Clause ID: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S005_C000_CL001
+# Generated: 2026-02-11T18:21:29.136992+00:00
+# Confidence: 0.5
+
+control:
+  id: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S005_C000_CL001
+  type: ClauseType.OBLIGATION
+  rule: "verify"
+
+  actor:
+    entity: "Banks"
+
+
+  action:
+    operation: "verify"
+
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FFIEC_CIP_MANUAL_B2BFE2"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

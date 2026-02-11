@@ -1,0 +1,36 @@
+{
+  "document": "ffiec_cip_manual",
+  "source_path": "/home/user/AegisLang/examples/regulations/ffiec_cip_manual.md",
+  "ingestion": {
+    "sections": 9,
+    "total_chunks": 6
+  },
+  "parsing": {
+    "total_clauses": 17,
+    "clause_types": {
+      "obligation": 13,
+      "permission": 3,
+      "prohibition": 1
+    }
+  },
+  "mapping": {
+    "target_schema": "aml_schema",
+    "fully_mapped": 0,
+    "partially_mapped": 1,
+    "unmapped": 16
+  },
+  "compilation": {
+    "artifact_counts": {
+      "yaml": 17,
+      "sql": 17,
+      "python": 17
+    },
+    "total_artifacts": 51
+  },
+  "validation": {
+    "total": 51,
+    "passed": 28,
+    "failed": 17,
+    "needs_review": 6
+  }
+}
