@@ -1,0 +1,45 @@
+# Source: Institutions must verify customer identity within a reasonable time after accoun...
+# Clause ID: FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S005_C000_CL003
+# Generated: 2026-02-11T18:21:29.625356+00:00
+# Confidence: 0.5
+
+control:
+  id: FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S005_C000_CL003
+  type: ClauseType.OBLIGATION
+  rule: "verify customer identity within a reasonable"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "verify"
+
+
+
+  object:
+    entity: "customer identity within a reasonable"
+
+
+
+
+  trigger:
+    event: "account opening"
+
+
+
+
+  temporal_scope:
+
+    deadline: "a reasonable time after account opening"
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FINCEN_CDD_RULE_4BC76D"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

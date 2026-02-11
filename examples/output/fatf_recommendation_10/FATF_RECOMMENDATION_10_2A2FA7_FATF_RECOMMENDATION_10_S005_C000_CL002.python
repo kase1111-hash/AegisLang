@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S005_C000_CL002
+
+Source: Institutions must identify the beneficial owner and take reasonable me...
+Generated: 2026-02-11T18:20:55.160273+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S005_C000_CL002:
+    """Test cases for ClauseType.OBLIGATION rule: FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S005_C000_CL002"""
+
+    @pytest.fixture
+    def compliant_institutions(self):
+        """Create a compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_001",
+
+            "identify_status": True,
+
+
+            "the_identity_of_the_beneficial": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_institutions(self):
+        """Create a non-compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_002",
+
+            "identify_status": False,
+
+
+            "the_identity_of_the_beneficial": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_identify_obligation_met(
+        self, compliant_institutions
+    ):
+        """Test that obligation is satisfied when identify is performed."""
+        entity = compliant_institutions
+
+        # Assert obligation is met
+        assert entity["identify_status"] is True, \
+            "Institutions must identify the identity of the beneficial"
+
+    def test_identify_obligation_violated(
+        self, non_compliant_institutions
+    ):
+        """Test that violation is detected when identify is not performed."""
+        entity = non_compliant_institutions
+
+        # Assert obligation is violated
+        assert entity["identify_status"] is False, \
+            "Expected violation when Institutions does not identify"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S005_C000_CL002"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Institutions must identify the beneficial owner and take reasonable measures to verify the identity of the beneficial owner."""
+CONFIDENCE = 0.5

@@ -1,0 +1,37 @@
+{
+  "document": "fatf_recommendation_10",
+  "source_path": "/home/user/AegisLang/examples/regulations/fatf_recommendation_10.md",
+  "ingestion": {
+    "sections": 9,
+    "total_chunks": 6
+  },
+  "parsing": {
+    "total_clauses": 18,
+    "clause_types": {
+      "obligation": 14,
+      "permission": 2,
+      "prohibition": 1,
+      "conditional": 1
+    }
+  },
+  "mapping": {
+    "target_schema": "aml_schema",
+    "fully_mapped": 0,
+    "partially_mapped": 0,
+    "unmapped": 18
+  },
+  "compilation": {
+    "artifact_counts": {
+      "yaml": 18,
+      "sql": 18,
+      "python": 18
+    },
+    "total_artifacts": 54
+  },
+  "validation": {
+    "total": 54,
+    "passed": 30,
+    "failed": 18,
+    "needs_review": 6
+  }
+}

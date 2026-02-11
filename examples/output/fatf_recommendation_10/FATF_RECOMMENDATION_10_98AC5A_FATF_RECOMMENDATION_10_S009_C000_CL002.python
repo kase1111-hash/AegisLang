@@ -1,0 +1,72 @@
+"""
+Test for compliance rule: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S009_C000_CL002
+
+Source: Institutions must satisfy themselves that the third party is regulated...
+Generated: 2026-02-11T18:21:28.960244+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S009_C000_CL002:
+    """Test cases for ClauseType.OBLIGATION rule: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S009_C000_CL002"""
+
+    @pytest.fixture
+    def compliant_institutions(self):
+        """Create a compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_001",
+
+            "satisfy_status": True,
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_institutions(self):
+        """Create a non-compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_002",
+
+            "satisfy_status": False,
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_satisfy_obligation_met(
+        self, compliant_institutions
+    ):
+        """Test that obligation is satisfied when satisfy is performed."""
+        entity = compliant_institutions
+
+        # Assert obligation is met
+        assert entity["satisfy_status"] is True, \
+            "Institutions must satisfy"
+
+    def test_satisfy_obligation_violated(
+        self, non_compliant_institutions
+    ):
+        """Test that violation is detected when satisfy is not performed."""
+        entity = non_compliant_institutions
+
+        # Assert obligation is violated
+        assert entity["satisfy_status"] is False, \
+            "Expected violation when Institutions does not satisfy"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S009_C000_CL002"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Institutions must satisfy themselves that the third party is regulated and supervised for AML/CFT requirements."""
+CONFIDENCE = 0.5

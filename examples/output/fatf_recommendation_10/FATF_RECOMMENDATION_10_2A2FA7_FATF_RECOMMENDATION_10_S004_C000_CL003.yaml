@@ -1,0 +1,30 @@
+# Source: CDD is required when there is a suspicion of money laundering or terrorist finan...
+# Clause ID: FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S004_C000_CL003
+# Generated: 2026-02-11T18:20:55.070679+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S004_C000_CL003
+  type: ClauseType.OBLIGATION
+  rule: "comply"
+
+  actor:
+    entity: "unspecified entity"
+
+
+  action:
+    operation: "comply"
+
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_2A2FA7"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

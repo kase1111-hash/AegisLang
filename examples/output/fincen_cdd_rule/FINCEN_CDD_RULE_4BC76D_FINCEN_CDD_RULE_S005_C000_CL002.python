@@ -1,0 +1,72 @@
+"""
+Test for compliance rule: FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S005_C000_CL002
+
+Source: Banks shall collect the following information at account opening: name...
+Generated: 2026-02-11T18:21:29.611705+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S005_C000_CL002:
+    """Test cases for ClauseType.OBLIGATION rule: FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S005_C000_CL002"""
+
+    @pytest.fixture
+    def compliant_banks(self):
+        """Create a compliant Banks fixture."""
+        return {
+            "id": "test_banks_001",
+
+            "collect_status": True,
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_banks(self):
+        """Create a non-compliant Banks fixture."""
+        return {
+            "id": "test_banks_002",
+
+            "collect_status": False,
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_collect_obligation_met(
+        self, compliant_banks
+    ):
+        """Test that obligation is satisfied when collect is performed."""
+        entity = compliant_banks
+
+        # Assert obligation is met
+        assert entity["collect_status"] is True, \
+            "Banks must collect"
+
+    def test_collect_obligation_violated(
+        self, non_compliant_banks
+    ):
+        """Test that violation is detected when collect is not performed."""
+        entity = non_compliant_banks
+
+        # Assert obligation is violated
+        assert entity["collect_status"] is False, \
+            "Expected violation when Banks does not collect"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S005_C000_CL002"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Banks shall collect the following information at account opening: name, date of birth, address, and identification number."""
+CONFIDENCE = 0.5

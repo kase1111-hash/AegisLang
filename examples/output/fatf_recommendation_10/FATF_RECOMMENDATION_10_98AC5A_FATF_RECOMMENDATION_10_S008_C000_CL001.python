@@ -1,0 +1,47 @@
+"""
+Test for compliance rule: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S008_C000_CL001
+
+Source: Financial institutions should not open the account or commence the bus...
+Generated: 2026-02-11T18:21:28.855795+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S008_C000_CL001:
+    """Test cases for ClauseType.CONDITIONAL rule: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S008_C000_CL001"""
+
+    @pytest.fixture
+    def compliant_financial_institutions(self):
+        """Create a compliant Financial institutions fixture."""
+        return {
+            "id": "test_financial_institutions_001",
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_financial_institutions(self):
+        """Create a non-compliant Financial institutions fixture."""
+        return {
+            "id": "test_financial_institutions_002",
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S008_C000_CL001"
+CLAUSE_TYPE = "ClauseType.CONDITIONAL"
+SOURCE_TEXT = """Financial institutions should not open the account or commence the business relationship when they are unable to satisfactorily complete CDD measures."""
+CONFIDENCE = 0.5

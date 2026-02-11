@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S007_C000_CL001
+
+Source: Financial institutions must develop risk profiles for each customer ba...
+Generated: 2026-02-11T18:21:29.712078+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S007_C000_CL001:
+    """Test cases for ClauseType.OBLIGATION rule: FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S007_C000_CL001"""
+
+    @pytest.fixture
+    def compliant_financial_institutions(self):
+        """Create a compliant Financial institutions fixture."""
+        return {
+            "id": "test_financial_institutions_001",
+
+            "develop_status": True,
+
+
+            "risk_profiles_for_each_customer": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_financial_institutions(self):
+        """Create a non-compliant Financial institutions fixture."""
+        return {
+            "id": "test_financial_institutions_002",
+
+            "develop_status": False,
+
+
+            "risk_profiles_for_each_customer": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_develop_obligation_met(
+        self, compliant_financial_institutions
+    ):
+        """Test that obligation is satisfied when develop is performed."""
+        entity = compliant_financial_institutions
+
+        # Assert obligation is met
+        assert entity["develop_status"] is True, \
+            "Financial institutions must develop risk profiles for each customer"
+
+    def test_develop_obligation_violated(
+        self, non_compliant_financial_institutions
+    ):
+        """Test that violation is detected when develop is not performed."""
+        entity = non_compliant_financial_institutions
+
+        # Assert obligation is violated
+        assert entity["develop_status"] is False, \
+            "Expected violation when Financial institutions does not develop"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FINCEN_CDD_RULE_4BC76D_FINCEN_CDD_RULE_S007_C000_CL001"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Financial institutions must develop risk profiles for each customer based on customer information."""
+CONFIDENCE = 0.5

@@ -1,0 +1,34 @@
+# Source: Staff must not open accounts for individuals or entities identified on governmen...
+# Clause ID: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S007_C000_CL003
+# Generated: 2026-02-11T18:21:29.316368+00:00
+# Confidence: 0.95
+
+control:
+  id: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S007_C000_CL003
+  type: prohibition
+  rule: "MUST NOT open open accounts for individuals or"
+
+  actor:
+    entity: "Staff"
+
+    mapped_to: "audit_log.actor"
+
+
+  prohibited_action:
+    operation: "open"
+    enforcement: "block"
+
+
+  object:
+    entity: "open accounts for individuals or"
+
+
+
+
+
+  severity: critical
+
+  metadata:
+    source_document: "FFIEC_CIP_MANUAL_B2BFE2"
+    confidence: 0.95
+    generated_by: "aegislang-compiler-v1.0.0"

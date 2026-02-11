@@ -1,0 +1,75 @@
+"""
+Test for compliance rule: FFIEC_CIP_MANUAL_A88D37_FFIEC_CIP_MANUAL_S007_C000_CL003
+
+Source: Staff must not open accounts for individuals or entities identified on...
+Generated: 2026-02-11T18:20:55.818376+00:00
+Confidence: 0.95
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFFIEC_CIP_MANUAL_A88D37_FFIEC_CIP_MANUAL_S007_C000_CL003:
+    """Test cases for ClauseType.PROHIBITION rule: FFIEC_CIP_MANUAL_A88D37_FFIEC_CIP_MANUAL_S007_C000_CL003"""
+
+    @pytest.fixture
+    def compliant_staff(self):
+        """Create a compliant Staff fixture."""
+        return {
+            "id": "test_staff_001",
+
+            "open_status": False,
+
+
+            "open_accounts_for_individuals_or": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_staff(self):
+        """Create a non-compliant Staff fixture."""
+        return {
+            "id": "test_staff_002",
+
+            "open_status": True,
+
+
+            "open_accounts_for_individuals_or": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_open_prohibition_respected(
+        self, compliant_staff
+    ):
+        """Test that prohibition is respected when open is not performed."""
+        entity = compliant_staff
+
+        # Assert prohibition is respected
+        assert entity["open_status"] is False, \
+            "Staff must not open open accounts for individuals or"
+
+    def test_open_prohibition_violated(
+        self, non_compliant_staff
+    ):
+        """Test that violation is detected when open is performed."""
+        entity = non_compliant_staff
+
+        # Assert prohibition is violated
+        assert entity["open_status"] is True, \
+            "Expected violation when Staff does open"
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FFIEC_CIP_MANUAL_A88D37_FFIEC_CIP_MANUAL_S007_C000_CL003"
+CLAUSE_TYPE = "ClauseType.PROHIBITION"
+SOURCE_TEXT = """Staff must not open accounts for individuals or entities identified on government sanctions lists."""
+CONFIDENCE = 0.95

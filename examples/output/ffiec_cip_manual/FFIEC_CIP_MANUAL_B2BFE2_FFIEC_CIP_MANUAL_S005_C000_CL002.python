@@ -1,0 +1,47 @@
+"""
+Test for compliance rule: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S005_C000_CL002
+
+Source: Non-documentary methods may include contacting the customer, comparing...
+Generated: 2026-02-11T18:21:29.173604+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S005_C000_CL002:
+    """Test cases for ClauseType.PERMISSION rule: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S005_C000_CL002"""
+
+    @pytest.fixture
+    def compliant_unspecified_entity(self):
+        """Create a compliant unspecified entity fixture."""
+        return {
+            "id": "test_unspecified_entity_001",
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_unspecified_entity(self):
+        """Create a non-compliant unspecified entity fixture."""
+        return {
+            "id": "test_unspecified_entity_002",
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S005_C000_CL002"
+CLAUSE_TYPE = "ClauseType.PERMISSION"
+SOURCE_TEXT = """Non-documentary methods may include contacting the customer, comparing information with consumer reporting agencies, or checking references."""
+CONFIDENCE = 0.5

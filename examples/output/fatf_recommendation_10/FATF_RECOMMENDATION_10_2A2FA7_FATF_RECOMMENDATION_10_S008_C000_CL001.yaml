@@ -1,0 +1,30 @@
+# Source: Financial institutions should not open the account or commence the business rela...
+# Clause ID: FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S008_C000_CL001
+# Generated: 2026-02-11T18:20:55.349809+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S008_C000_CL001
+  type: ClauseType.CONDITIONAL
+  rule: "open"
+
+  actor:
+    entity: "Financial institutions"
+
+
+  action:
+    operation: "open"
+
+
+
+
+
+
+
+
+  severity: medium
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_2A2FA7"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

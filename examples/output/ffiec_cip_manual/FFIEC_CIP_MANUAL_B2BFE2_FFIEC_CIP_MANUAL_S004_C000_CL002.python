@@ -1,0 +1,72 @@
+"""
+Test for compliance rule: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S004_C000_CL002
+
+Source: The CIP must be incorporated into the bank's BSA/AML compliance progra...
+Generated: 2026-02-11T18:21:29.096355+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S004_C000_CL002:
+    """Test cases for ClauseType.OBLIGATION rule: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S004_C000_CL002"""
+
+    @pytest.fixture
+    def compliant_the_cip(self):
+        """Create a compliant The CIP fixture."""
+        return {
+            "id": "test_the_cip_001",
+
+            "be_status": True,
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_the_cip(self):
+        """Create a non-compliant The CIP fixture."""
+        return {
+            "id": "test_the_cip_002",
+
+            "be_status": False,
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_be_obligation_met(
+        self, compliant_the_cip
+    ):
+        """Test that obligation is satisfied when be is performed."""
+        entity = compliant_the_cip
+
+        # Assert obligation is met
+        assert entity["be_status"] is True, \
+            "The CIP must be"
+
+    def test_be_obligation_violated(
+        self, non_compliant_the_cip
+    ):
+        """Test that violation is detected when be is not performed."""
+        entity = non_compliant_the_cip
+
+        # Assert obligation is violated
+        assert entity["be_status"] is False, \
+            "Expected violation when The CIP does not be"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S004_C000_CL002"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """The CIP must be incorporated into the bank's BSA/AML compliance program."""
+CONFIDENCE = 0.5

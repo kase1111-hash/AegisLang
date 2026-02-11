@@ -1,0 +1,76 @@
+"""
+Test for compliance rule: FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S005_C000_CL003
+
+Source: Financial institutions shall understand and obtain information on the ...
+Generated: 2026-02-11T18:20:55.186454+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S005_C000_CL003:
+    """Test cases for ClauseType.OBLIGATION rule: FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S005_C000_CL003"""
+
+    @pytest.fixture
+    def compliant_financial_institutions(self):
+        """Create a compliant Financial institutions fixture."""
+        return {
+            "id": "test_financial_institutions_001",
+
+            "understand_status": True,
+
+
+            "and_obtain_information_on_the": "valid_value",
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_financial_institutions(self):
+        """Create a non-compliant Financial institutions fixture."""
+        return {
+            "id": "test_financial_institutions_002",
+
+            "understand_status": False,
+
+
+            "and_obtain_information_on_the": None,
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_understand_obligation_met(
+        self, compliant_financial_institutions
+    ):
+        """Test that obligation is satisfied when understand is performed."""
+        entity = compliant_financial_institutions
+
+        # Assert obligation is met
+        assert entity["understand_status"] is True, \
+            "Financial institutions must understand and obtain information on the"
+
+    def test_understand_obligation_violated(
+        self, non_compliant_financial_institutions
+    ):
+        """Test that violation is detected when understand is not performed."""
+        entity = non_compliant_financial_institutions
+
+        # Assert obligation is violated
+        assert entity["understand_status"] is False, \
+            "Expected violation when Financial institutions does not understand"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FATF_RECOMMENDATION_10_2A2FA7_FATF_RECOMMENDATION_10_S005_C000_CL003"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Financial institutions shall understand and obtain information on the purpose and intended nature of the business relationship."""
+CONFIDENCE = 0.5

@@ -1,0 +1,47 @@
+"""
+Test for compliance rule: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S007_C000_CL001
+
+Source: Countries may allow financial institutions to apply simplified CDD mea...
+Generated: 2026-02-11T18:21:28.781048+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S007_C000_CL001:
+    """Test cases for ClauseType.PERMISSION rule: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S007_C000_CL001"""
+
+    @pytest.fixture
+    def compliant_countries(self):
+        """Create a compliant Countries fixture."""
+        return {
+            "id": "test_countries_001",
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_countries(self):
+        """Create a non-compliant Countries fixture."""
+        return {
+            "id": "test_countries_002",
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S007_C000_CL001"
+CLAUSE_TYPE = "ClauseType.PERMISSION"
+SOURCE_TEXT = """Countries may allow financial institutions to apply simplified CDD measures where lower risks have been identified."""
+CONFIDENCE = 0.5

@@ -1,0 +1,72 @@
+"""
+Test for compliance rule: FFIEC_CIP_MANUAL_A88D37_FFIEC_CIP_MANUAL_S009_C000_CL002
+
+Source: The relied-upon institution must be subject to a rule implementing the...
+Generated: 2026-02-11T18:20:55.944021+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFFIEC_CIP_MANUAL_A88D37_FFIEC_CIP_MANUAL_S009_C000_CL002:
+    """Test cases for ClauseType.OBLIGATION rule: FFIEC_CIP_MANUAL_A88D37_FFIEC_CIP_MANUAL_S009_C000_CL002"""
+
+    @pytest.fixture
+    def compliant_unspecified_entity(self):
+        """Create a compliant unspecified entity fixture."""
+        return {
+            "id": "test_unspecified_entity_001",
+
+            "be_status": True,
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_unspecified_entity(self):
+        """Create a non-compliant unspecified entity fixture."""
+        return {
+            "id": "test_unspecified_entity_002",
+
+            "be_status": False,
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_be_obligation_met(
+        self, compliant_unspecified_entity
+    ):
+        """Test that obligation is satisfied when be is performed."""
+        entity = compliant_unspecified_entity
+
+        # Assert obligation is met
+        assert entity["be_status"] is True, \
+            "unspecified entity must be"
+
+    def test_be_obligation_violated(
+        self, non_compliant_unspecified_entity
+    ):
+        """Test that violation is detected when be is not performed."""
+        entity = non_compliant_unspecified_entity
+
+        # Assert obligation is violated
+        assert entity["be_status"] is False, \
+            "Expected violation when unspecified entity does not be"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FFIEC_CIP_MANUAL_A88D37_FFIEC_CIP_MANUAL_S009_C000_CL002"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """The relied-upon institution must be subject to a rule implementing the BSA/AML compliance program requirements."""
+CONFIDENCE = 0.5

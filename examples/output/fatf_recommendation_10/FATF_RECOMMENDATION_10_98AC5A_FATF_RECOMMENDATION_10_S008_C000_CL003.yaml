@@ -1,0 +1,34 @@
+# Source: Existing customers whose identity cannot be verified must be subject to enhanced...
+# Clause ID: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S008_C000_CL003
+# Generated: 2026-02-11T18:21:28.895752+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_98AC5A_FATF_RECOMMENDATION_10_S008_C000_CL003
+  type: ClauseType.OBLIGATION
+  rule: "be subject to enhanced monitoring or"
+
+  actor:
+    entity: "Existing customers whose identity cannot be verified"
+
+
+  action:
+    operation: "be"
+
+
+
+  object:
+    entity: "subject to enhanced monitoring or"
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_98AC5A"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

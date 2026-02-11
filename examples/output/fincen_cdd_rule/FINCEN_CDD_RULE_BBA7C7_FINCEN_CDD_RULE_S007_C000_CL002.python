@@ -1,0 +1,72 @@
+"""
+Test for compliance rule: FINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S007_C000_CL002
+
+Source: Institutions shall assign risk ratings to customers using criteria tha...
+Generated: 2026-02-11T18:20:56.213051+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S007_C000_CL002:
+    """Test cases for ClauseType.OBLIGATION rule: FINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S007_C000_CL002"""
+
+    @pytest.fixture
+    def compliant_institutions(self):
+        """Create a compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_001",
+
+            "assign_status": True,
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_institutions(self):
+        """Create a non-compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_002",
+
+            "assign_status": False,
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_assign_obligation_met(
+        self, compliant_institutions
+    ):
+        """Test that obligation is satisfied when assign is performed."""
+        entity = compliant_institutions
+
+        # Assert obligation is met
+        assert entity["assign_status"] is True, \
+            "Institutions must assign"
+
+    def test_assign_obligation_violated(
+        self, non_compliant_institutions
+    ):
+        """Test that violation is detected when assign is not performed."""
+        entity = non_compliant_institutions
+
+        # Assert obligation is violated
+        assert entity["assign_status"] is False, \
+            "Expected violation when Institutions does not assign"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S007_C000_CL002"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Institutions shall assign risk ratings to customers using criteria that include the nature of the customer's business, geographic location, and transaction patterns."""
+CONFIDENCE = 0.5

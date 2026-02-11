@@ -1,0 +1,30 @@
+# Source: Banks shall monitor transactions to identify suspicious activity consistent with...
+# Clause ID: FINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S008_C000_CL002
+# Generated: 2026-02-11T18:20:56.277234+00:00
+# Confidence: 0.5
+
+control:
+  id: FINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S008_C000_CL002
+  type: ClauseType.OBLIGATION
+  rule: "monitor"
+
+  actor:
+    entity: "Banks"
+
+
+  action:
+    operation: "monitor"
+
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FINCEN_CDD_RULE_BBA7C7"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v1.0.0"

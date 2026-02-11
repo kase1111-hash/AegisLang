@@ -1,0 +1,72 @@
+"""
+Test for compliance rule: FINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S008_C000_CL002
+
+Source: Banks shall monitor transactions to identify suspicious activity consi...
+Generated: 2026-02-11T18:20:56.288633+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S008_C000_CL002:
+    """Test cases for ClauseType.OBLIGATION rule: FINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S008_C000_CL002"""
+
+    @pytest.fixture
+    def compliant_banks(self):
+        """Create a compliant Banks fixture."""
+        return {
+            "id": "test_banks_001",
+
+            "monitor_status": True,
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_banks(self):
+        """Create a non-compliant Banks fixture."""
+        return {
+            "id": "test_banks_002",
+
+            "monitor_status": False,
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+    def test_monitor_obligation_met(
+        self, compliant_banks
+    ):
+        """Test that obligation is satisfied when monitor is performed."""
+        entity = compliant_banks
+
+        # Assert obligation is met
+        assert entity["monitor_status"] is True, \
+            "Banks must monitor"
+
+    def test_monitor_obligation_violated(
+        self, non_compliant_banks
+    ):
+        """Test that violation is detected when monitor is not performed."""
+        entity = non_compliant_banks
+
+        # Assert obligation is violated
+        assert entity["monitor_status"] is False, \
+            "Expected violation when Banks does not monitor"
+
+
+
+
+
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FINCEN_CDD_RULE_BBA7C7_FINCEN_CDD_RULE_S008_C000_CL002"
+CLAUSE_TYPE = "ClauseType.OBLIGATION"
+SOURCE_TEXT = """Banks shall monitor transactions to identify suspicious activity consistent with the customer's risk profile."""
+CONFIDENCE = 0.5

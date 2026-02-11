@@ -1,0 +1,52 @@
+"""
+Test for compliance rule: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S008_C000_CL003
+
+Source: Institutions may satisfy this requirement through posting a notice in ...
+Generated: 2026-02-11T18:21:29.403208+00:00
+Confidence: 0.5
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+
+class TestFFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S008_C000_CL003:
+    """Test cases for ClauseType.PERMISSION rule: FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S008_C000_CL003"""
+
+    @pytest.fixture
+    def compliant_institutions(self):
+        """Create a compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_001",
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+    @pytest.fixture
+    def non_compliant_institutions(self):
+        """Create a non-compliant Institutions fixture."""
+        return {
+            "id": "test_institutions_002",
+
+
+            "created_at": datetime.utcnow(),
+        }
+
+
+
+
+
+
+    def test_deadline_compliance(self):
+        """Test deadline compliance: or on the website"""
+        # TODO: Implement deadline testing
+        pytest.skip("Deadline testing not yet implemented")
+
+
+
+# Metadata for test discovery
+CLAUSE_ID = "FFIEC_CIP_MANUAL_B2BFE2_FFIEC_CIP_MANUAL_S008_C000_CL003"
+CLAUSE_TYPE = "ClauseType.PERMISSION"
+SOURCE_TEXT = """Institutions may satisfy this requirement through posting a notice in the lobby or on the website."""
+CONFIDENCE = 0.5
