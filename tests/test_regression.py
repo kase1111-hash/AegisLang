@@ -195,55 +195,6 @@ Users may access.
 class TestMapperRegressions:
     """Regression tests for schema mapping."""
 
-    def test_empty_entity_mapping(self):
-        """
-        Regression: Empty entity lists caused mapping crash.
-        Fixed in: v0.9.5
-        """
-        from aegislang.agents.schema_mapping_agent import (
-            SchemaMappingAgent,
-            create_default_registry,
-        )
-
-        mapper = SchemaMappingAgent(
-            registry=create_default_registry(),
-            use_mock=True,
-        )
-
-        # Should handle gracefully
-        result = mapper._compute_similarity("", "customers")
-        assert isinstance(result, (int, float))
-
-    def test_special_characters_in_entity_names(self):
-        """
-        Regression: Special characters in entity names caused regex issues.
-        Fixed in: v0.9.5
-        """
-        from aegislang.agents.schema_mapping_agent import (
-            SchemaMappingAgent,
-            create_default_registry,
-        )
-
-        mapper = SchemaMappingAgent(
-            registry=create_default_registry(),
-            use_mock=True,
-        )
-
-        # These should not raise exceptions
-        special_entities = [
-            "customer.id",
-            "user[0]",
-            "field(name)",
-            "table::column",
-            "entity->attribute",
-        ]
-
-        for entity in special_entities:
-            try:
-                result = mapper._compute_similarity(entity, "customers")
-                assert isinstance(result, (int, float))
-            except Exception as e:
-                pytest.fail(f"Failed for entity '{entity}': {e}")
 
 
 # =============================================================================

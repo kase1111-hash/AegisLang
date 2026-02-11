@@ -432,6 +432,7 @@ async def process_ingestion(
     file_path: Path,
     metadata: dict[str, Any],
     storage: Storage,
+    doc_id: str | None = None,
 ) -> None:
     """Background task for document ingestion."""
     try:
@@ -443,18 +444,22 @@ async def process_ingestion(
         ingestor = AegisIngestor()
         result = ingestor.ingest(file_path)
 
+        # Use the endpoint-provided doc_id for storage consistency
+        storage_key = doc_id or result.doc_id
+
         # Store document
         doc_data = result.model_dump()
         doc_data["metadata"].update(metadata)
-        storage.documents[result.doc_id] = doc_data
+        doc_data["doc_id"] = storage_key
+        storage.documents[storage_key] = doc_data
 
         storage.update_job(
             job_id,
             JobStatus.COMPLETED,
-            result={"doc_id": result.doc_id, "sections": len(result.sections)},
+            result={"doc_id": storage_key, "sections": len(result.sections)},
         )
 
-        logger.info("ingestion_completed", job_id=job_id, doc_id=result.doc_id)
+        logger.info("ingestion_completed", job_id=job_id, doc_id=storage_key)
 
     except Exception as e:
         logger.error("ingestion_failed", job_id=job_id, error=str(e))
@@ -660,6 +665,7 @@ async def ingest_document(
         temp_path,
         meta_dict,
         storage,
+        doc_id,
     )
 
     return IngestResponse(
@@ -668,6 +674,22 @@ async def ingest_document(
         doc_id=doc_id,
         webhook_url=f"/api/v1/jobs/{job_id}",
     )
+
+
+@app.get("/api/v1/documents", tags=["Documents"])
+async def list_documents(
+    storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
+) -> list[dict[str, Any]]:
+    """List all ingested documents. Requires X-API-Key header."""
+    return [
+        {
+            "doc_id": doc_id,
+            "metadata": doc.get("metadata", {}),
+            "section_count": len(doc.get("sections", [])),
+        }
+        for doc_id, doc in storage.documents.items()
+    ]
 
 
 @app.get("/api/v1/documents/{doc_id}", tags=["Documents"])
