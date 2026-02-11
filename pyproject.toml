@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aegislang"
-version = "1.0.0"
+version = "0.1.0"
 description = "Natural language policy compiler for compliance automation"
 readme = "README.md"
 license = {text = "MIT"}
@@ -17,7 +17,7 @@ authors = [
 ]
 keywords = ["compliance", "nlp", "policy", "governance", "automation"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
