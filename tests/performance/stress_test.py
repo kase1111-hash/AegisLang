@@ -29,8 +29,8 @@ import urllib.parse
 # =============================================================================
 
 @dataclass
-class TestConfig:
-    """Test configuration."""
+class StressConfig:
+    """Stress test configuration."""
     base_url: str = "http://localhost:8080"
     num_users: int = 10
     duration_seconds: int = 60
@@ -52,8 +52,8 @@ class RequestResult:
 
 
 @dataclass
-class TestResults:
-    """Aggregated test results."""
+class StressResults:
+    """Aggregated stress test results."""
     total_requests: int = 0
     successful_requests: int = 0
     failed_requests: int = 0
@@ -129,7 +129,7 @@ def make_request(
 # Test Scenarios
 # =============================================================================
 
-def test_health_check(config: TestConfig) -> RequestResult:
+def run_health_check(config: StressConfig) -> RequestResult:
     """Test health check endpoint."""
     url = f"{config.base_url}/api/v1/health"
     status, _, elapsed = make_request(url)
@@ -144,7 +144,7 @@ def test_health_check(config: TestConfig) -> RequestResult:
     )
 
 
-def test_list_documents(config: TestConfig) -> RequestResult:
+def run_list_documents(config: StressConfig) -> RequestResult:
     """Test list documents endpoint."""
     url = f"{config.base_url}/api/v1/documents"
     status, _, elapsed = make_request(url)
@@ -159,7 +159,7 @@ def test_list_documents(config: TestConfig) -> RequestResult:
     )
 
 
-def test_ingest_document(config: TestConfig) -> RequestResult:
+def run_ingest_document(config: StressConfig) -> RequestResult:
     """Test document ingestion."""
     url = f"{config.base_url}/api/v1/ingest"
     policy = random.choice(SAMPLE_POLICIES)
@@ -207,7 +207,7 @@ def test_ingest_document(config: TestConfig) -> RequestResult:
 class VirtualUser:
     """Simulated user that makes requests."""
 
-    def __init__(self, user_id: int, config: TestConfig, results: TestResults):
+    def __init__(self, user_id: int, config: StressConfig, results: StressResults):
         self.user_id = user_id
         self.config = config
         self.results = results
@@ -220,9 +220,9 @@ class VirtualUser:
 
         # Weighted task selection
         tasks = [
-            (test_health_check, 10),
-            (test_list_documents, 5),
-            (test_ingest_document, 2),
+            (run_health_check, 10),
+            (run_list_documents, 5),
+            (run_ingest_document, 2),
         ]
 
         total_weight = sum(w for _, w in tasks)
@@ -283,9 +283,9 @@ class VirtualUser:
 # Test Runner
 # =============================================================================
 
-def run_stress_test(config: TestConfig) -> TestResults:
+def run_stress_test(config: StressConfig) -> StressResults:
     """Run the stress test."""
-    results = TestResults()
+    results = StressResults()
     results.start_time = time.time()
 
     print(f"\n{'='*60}")
@@ -341,7 +341,7 @@ def run_stress_test(config: TestConfig) -> TestResults:
     return results
 
 
-def print_results(results: TestResults):
+def print_results(results: StressResults):
     """Print test results summary."""
     print(f"\n{'='*60}")
     print("Test Results")
@@ -402,7 +402,7 @@ def print_results(results: TestResults):
     print(f"\n{'='*60}\n")
 
 
-def export_results(results: TestResults, filename: str):
+def export_results(results: StressResults, filename: str):
     """Export results to JSON file."""
     data = {
         "summary": {
@@ -481,7 +481,7 @@ def main():
 
     args = parser.parse_args()
 
-    config = TestConfig(
+    config = StressConfig(
         base_url=args.url,
         num_users=args.users,
         duration_seconds=args.duration,
