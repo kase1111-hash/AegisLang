@@ -122,7 +122,7 @@ AegisLang employs a **layered multi-agent architecture**. Each layer operates as
 
 | ID | Feature | Status |
 |----|---------|--------|
-| PRS-001 | Clause type detection (obligation, prohibition, permission, conditional, definition) | Implemented |
+| PRS-001 | Clause type detection (obligation, prohibition, permission, conditional, definition, exception) | Implemented |
 | PRS-002 | Actor entity extraction | Implemented |
 | PRS-003 | Action/verb phrase extraction | Implemented |
 | PRS-004 | Object/target entity extraction | Implemented |
@@ -218,9 +218,9 @@ AegisLang employs a **layered multi-agent architecture**. Each layer operates as
 
 ### 4.3 Storage
 
-**Current:** In-memory dictionaries (non-persistent). Data is lost on server restart.
+**Default:** In-memory dictionaries (non-persistent). Data is lost on server restart.
 
-**Planned:** SQLite for job status, document metadata, and generated artifacts.
+**Available:** SQLite backend for persistent storage of jobs, documents, schemas, clauses, and artifacts. Enable with `AEGISLANG_STORAGE_BACKEND=sqlite`.
 
 ---
 

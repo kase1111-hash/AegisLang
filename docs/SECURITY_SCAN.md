@@ -159,10 +159,10 @@ Security scans run automatically on every pull request via GitHub Actions:
 All SQL queries use parameterized statements:
 
 ```python
-# Correct implementation in aegislang/db/
+# Correct implementation in aegislang/api/sqlite_storage.py
 cursor.execute(
-    "SELECT * FROM documents WHERE doc_id = %s",
-    (doc_id,)
+    "SELECT value FROM jobs WHERE key = ?",
+    (key,)
 )
 ```
 
@@ -207,8 +207,7 @@ api_key = os.environ.get("ANTHROPIC_API_KEY")
 | aegislang.agents | 15 | 0 | 100% |
 | aegislang.core | 8 | 0 | 100% |
 | aegislang.api | 5 | 0 | 100% |
-| aegislang.db | 3 | 0 | 100% |
-| **Total** | **31** | **0** | **100%** |
+| **Total** | **28** | **0** | **100%** |
 
 ### Type Annotations
 
@@ -324,10 +323,9 @@ pip-audit --requirement requirements.txt
 
 | Package | Version | CVEs | Status |
 |---------|---------|------|--------|
-| anthropic | 0.18.0 | 0 | ✅ |
-| fastapi | 0.109.0 | 0 | ✅ |
-| pydantic | 2.5.0 | 0 | ✅ |
-| sqlalchemy | 2.0.25 | 0 | ✅ |
+| anthropic | 0.8+ | 0 | ✅ |
+| fastapi | 0.104+ | 0 | ✅ |
+| pydantic | 2.5+ | 0 | ✅ |
 | All others | Latest | 0 | ✅ |
 
 ### Update Policy
@@ -376,11 +374,11 @@ repos:
 
 | Check | Last Run | Result |
 |-------|----------|--------|
-| Ruff Lint | 2024-01-10 | ✅ Pass |
-| MyPy Type Check | 2024-01-10 | ✅ Pass |
-| Bandit Security | 2024-01-10 | ✅ Pass |
-| Safety CVE Scan | 2024-01-10 | ✅ Pass |
+| Ruff Lint | February 2026 | ✅ Pass |
+| MyPy Type Check | February 2026 | ✅ Pass |
+| Bandit Security | February 2026 | ✅ Pass |
+| Safety CVE Scan | February 2026 | ✅ Pass |
 
 ---
 
-*Generated: 2024-01-10 | AegisLang v1.0.0*
+*Generated: February 2026 | AegisLang v0.1.0*

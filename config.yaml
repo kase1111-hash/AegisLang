@@ -1,5 +1,5 @@
 # AegisLang Configuration
-# Version: 1.0.0
+# Version: 0.1.0
 #
 # IMPORTANT: This is a REFERENCE configuration file.
 # The API server currently uses ENVIRONMENT VARIABLES for configuration.
@@ -7,10 +7,11 @@
 #
 # To configure AegisLang, set the following environment variables:
 #   - ANTHROPIC_API_KEY / OPENAI_API_KEY: LLM API credentials
-#   - DATABASE_URL: PostgreSQL connection string
-#   - REDIS_URL: Redis connection for event bus
-#   - NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD: Graph database credentials
-#   - PINECONE_API_KEY: Vector store credentials
+#   - AEGISLANG_STORAGE_BACKEND: Storage backend ("memory" or "sqlite")
+#   - AEGISLANG_SQLITE_PATH: SQLite database path (default: aegislang_data.db)
+#   - DATABASE_URL: PostgreSQL connection string (Docker Compose stack)
+#   - REDIS_URL: Redis connection (Docker Compose stack)
+#   - NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD: Graph database credentials (optional)
 #   - AEGISLANG_API_KEYS: Comma-separated API keys for authentication
 #   - AEGISLANG_DISABLE_AUTH: Set to "true" to disable authentication (dev only)
 #   - AEGISLANG_RATE_LIMIT_MINUTE: Requests per minute limit (default: 60)
@@ -41,21 +42,21 @@ embeddings:
   batch_size: 100                          # Batch size for bulk embedding
 
 # -----------------------------------------------------------------------------
-# Vector Store Configuration
+# Vector Store Configuration (NOT CURRENTLY USED)
+# Planned for future versions. Currently uses mock embeddings.
 # -----------------------------------------------------------------------------
-vector_store:
-  provider: "pinecone"                     # pinecone | weaviate | qdrant
-  index_name: "aegislang-policies"
-  environment: "us-east-1"
-  api_key_env: "PINECONE_API_KEY"
+# vector_store:
+#   provider: "pinecone"                   # pinecone | weaviate | qdrant
+#   index_name: "aegislang-policies"
+#   environment: "us-east-1"
+#   api_key_env: "PINECONE_API_KEY"
 
 # -----------------------------------------------------------------------------
-# Database Configuration
+# Storage Configuration
 # -----------------------------------------------------------------------------
-database:
-  url_env: "DATABASE_URL"                  # PostgreSQL connection string
-  pool_size: 10
-  max_overflow: 20
+storage:
+  backend: "memory"                        # memory | sqlite
+  sqlite_path: "aegislang_data.db"         # Path for SQLite database
 
 # -----------------------------------------------------------------------------
 # Graph Database Configuration (Provenance)
@@ -104,13 +105,14 @@ logging:
   file_path: "./logs/aegislang.log"
 
 # -----------------------------------------------------------------------------
-# Agent-OS Integration
+# Agent-OS Integration (NOT CURRENTLY USED)
+# Planned for future versions. See ROADMAP.md.
 # -----------------------------------------------------------------------------
-agent_os:
-  enabled: true
-  event_bus: "redis"                       # redis | kafka | rabbitmq
-  redis_url_env: "REDIS_URL"
-  node_prefix: "aegislang"
+# agent_os:
+#   enabled: false
+#   event_bus: "redis"                     # redis | kafka | rabbitmq
+#   redis_url_env: "REDIS_URL"
+#   node_prefix: "aegislang"
 
 # -----------------------------------------------------------------------------
 # API Server Configuration

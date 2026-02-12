@@ -26,14 +26,13 @@ AegisLang is a natural language programming platform that transforms policy docu
 
 ### What output formats can AegisLang generate?
 
-| Format | Use Case |
-|--------|----------|
-| YAML | CI/CD compliance rules, Kubernetes policies |
-| SQL | Database CHECK constraints, triggers |
-| Python | pytest test stubs, validator classes |
-| Terraform | Sentinel policies for infrastructure |
-| Rego | OPA policies for authorization |
-| JSON | Custom integrations, APIs |
+| Format | Use Case | Status |
+|--------|----------|--------|
+| YAML | CI/CD compliance rules, Kubernetes policies | Implemented |
+| SQL | Database CHECK constraints, triggers | Implemented |
+| Python | pytest test stubs, validator classes | Implemented |
+| Terraform | Sentinel policies for infrastructure | Planned |
+| Rego | OPA policies for authorization | Planned |
 
 ---
 
@@ -91,8 +90,9 @@ export ANTHROPIC_API_KEY=your-key
 **Via API:**
 ```bash
 curl -X POST http://localhost:8080/api/v1/ingest \
+  -H "X-API-Key: your-api-key" \
   -F "file=@policy.pdf" \
-  -F "document_type=regulation"
+  -F 'metadata={"document_name": "My Policy", "document_type": "regulation"}'
 ```
 
 **Via Python:**
@@ -108,7 +108,8 @@ doc = ingestor.ingest_file("policy.pdf")
 ```bash
 curl -X POST http://localhost:8080/api/v1/compile \
   -H "Content-Type: application/json" \
-  -d '{"doc_id": "DOC-001", "formats": ["yaml", "sql", "python"]}'
+  -H "X-API-Key: your-api-key" \
+  -d '{"doc_id": "DOC-001", "output_formats": ["yaml", "sql", "python"]}'
 ```
 
 ### What clause types does AegisLang recognize?
@@ -165,13 +166,17 @@ The L3 layer uses semantic embeddings to match policy entities (e.g., "customer"
 3. Applies configurable threshold (default: 0.7)
 4. Allows manual overrides for edge cases
 
-### What databases does AegisLang use?
+### What storage does AegisLang use?
 
-| Database | Purpose |
-|----------|---------|
-| PostgreSQL | Document metadata, clauses, artifacts, validation results |
-| Redis | Event bus, caching, async job queue |
-| Neo4j | Provenance graphs, lineage visualization (optional) |
+| Backend | Purpose | Status |
+|---------|---------|--------|
+| In-memory | Default storage (data lost on restart) | Default |
+| SQLite | Persistent local storage | Available (`AEGISLANG_STORAGE_BACKEND=sqlite`) |
+| PostgreSQL | Document metadata, clauses, artifacts | Available in Docker Compose stack |
+| Redis | Event bus, caching | Available in Docker Compose stack |
+| Neo4j | Provenance graphs, lineage visualization | Optional, in Docker Compose stack |
+
+By default, the API server uses in-memory storage. For persistence, set `AEGISLANG_STORAGE_BACKEND=sqlite`.
 
 ---
 
@@ -205,7 +210,7 @@ Response:
 
 ### Is there rate limiting?
 
-By default, no rate limiting is applied. For production, configure your load balancer or add middleware.
+Yes. The API includes a built-in in-memory rate limiter (default: 60 requests/minute, 1000 requests/hour per API key). Configure limits via `AEGISLANG_RATE_LIMIT_MINUTE` and `AEGISLANG_RATE_LIMIT_HOUR` environment variables. For production, you may also add rate limiting at the load balancer level.
 
 ---
 
@@ -304,14 +309,17 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for detailed solutions.
 
 ### How do I integrate with CI/CD?
 
-Use the generated YAML artifacts in your pipeline:
+Use the API to compile documents and retrieve the generated YAML artifacts for your pipeline:
 
 ```yaml
 # .github/workflows/compliance.yml
-- name: Check compliance rules
+- name: Compile compliance rules
   run: |
-    aegislang compile --format yaml --output rules/
-    # Use rules in subsequent validation steps
+    # Start server, upload document, compile, and retrieve artifacts via API
+    curl -X POST http://localhost:8080/api/v1/compile \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: $AEGISLANG_API_KEY" \
+      -d '{"doc_id": "$DOC_ID", "output_formats": ["yaml"]}'
 ```
 
 ### Does AegisLang support webhooks?
@@ -361,4 +369,4 @@ Open an issue at: https://github.com/kase1111-hash/AegisLang/issues
 
 ---
 
-*Last updated: 2024-01-10 | Version: 1.0.0*
+*Last updated: February 2026 | Version: 0.1.0*

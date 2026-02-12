@@ -28,7 +28,19 @@ The AegisLang API provides a RESTful interface for document ingestion, parsing, 
 
 ## Authentication
 
-Currently, the API does not require authentication for development purposes. In production deployments, JWT-based authentication should be configured via the `JWT_SECRET` environment variable.
+The API uses API key authentication via the `X-API-Key` header.
+
+**Configuration:**
+- Set `AEGISLANG_API_KEYS` environment variable with comma-separated valid keys (e.g., `AEGISLANG_API_KEYS="key1,key2"`)
+- If no keys are configured and auth is not disabled, a random development key is generated and logged at startup
+- Set `AEGISLANG_DISABLE_AUTH=true` to disable authentication for development
+
+**Example:**
+```bash
+curl -H "X-API-Key: your-api-key" http://localhost:8080/api/v1/health
+```
+
+The health check endpoint (`/api/v1/health`) does not require authentication. All other endpoints require a valid API key.
 
 ---
 
@@ -282,9 +294,6 @@ Trigger the full compilation pipeline for a document. This runs parsing, mapping
 - `yaml` - YAML compliance rules
 - `sql` - SQL constraints and triggers
 - `python` - Python test stubs
-- `terraform` - Terraform policy rules
-- `rego` - Open Policy Agent (Rego)
-- `json` - JSON rules
 
 **Example Request:**
 
@@ -478,7 +487,16 @@ The API uses standard HTTP status codes:
 
 ## Rate Limiting
 
-Rate limiting is not currently implemented. Production deployments should configure rate limiting at the load balancer or API gateway level.
+The API includes a built-in in-memory rate limiter. Default limits:
+
+| Window | Limit | Environment Variable |
+|--------|-------|---------------------|
+| Per minute | 60 requests | `AEGISLANG_RATE_LIMIT_MINUTE` |
+| Per hour | 1000 requests | `AEGISLANG_RATE_LIMIT_HOUR` |
+
+Rate limiting is applied per API key. When a limit is exceeded, the API returns HTTP 429 (Too Many Requests).
+
+For production deployments, you may also configure rate limiting at the load balancer or API gateway level.
 
 ---
 
