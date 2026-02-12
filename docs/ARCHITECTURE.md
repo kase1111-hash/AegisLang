@@ -123,8 +123,6 @@ This document describes the system architecture, data flow, and component intera
     │    - YAML compliance rules                                      │
     │    - SQL check constraints & triggers                           │
     │    - Python test stubs & validators                             │
-    │    - Terraform/Sentinel policies                                │
-    │    - OPA/Rego policies                                          │
     │  • Validate syntax                                              │
     │  • Embed source references                                      │
     │                                                                 │
@@ -150,7 +148,7 @@ This document describes the system architecture, data flow, and component intera
            ▼
     ┌─────────────┐
     │   Output    │
-    │  Artifacts  │  (.yaml, .sql, .py, .tf, .rego)
+    │  Artifacts  │  (.yaml, .sql, .py)
     └─────────────┘
 ```
 
@@ -218,9 +216,6 @@ This document describes the system architecture, data flow, and component intera
 │ YAML         │ Compliance rule definitions for CI/CD             │
 │ SQL          │ CHECK constraints, triggers for databases         │
 │ Python       │ pytest stubs, validator classes                   │
-│ Terraform    │ Sentinel policies for infrastructure              │
-│ Rego         │ OPA policies for authorization                    │
-│ JSON         │ Structured rules for custom integrations          │
 └──────────────┴───────────────────────────────────────────────────┘
 ```
 
@@ -289,34 +284,26 @@ This document describes the system architecture, data flow, and component intera
 │                                                                    │
 │  Document Processing                                               │
 │  ───────────────────                                               │
-│  POST   /api/v1/ingest           Upload and process document       │
-│  GET    /api/v1/documents        List all documents                │
-│  GET    /api/v1/documents/{id}   Get document details              │
+│  POST   /api/v1/ingest              Upload and process document    │
+│  GET    /api/v1/documents           List all documents             │
+│  GET    /api/v1/documents/{doc_id}  Get document details           │
 │                                                                    │
-│  Clause Management                                                 │
-│  ─────────────────                                                 │
-│  GET    /api/v1/clauses          List clauses (filterable)         │
-│  GET    /api/v1/clauses/{id}     Get clause details                │
-│                                                                    │
-│  Rule Compilation                                                  │
-│  ────────────────                                                  │
-│  GET    /api/v1/rules/{id}       Get compiled rules for clause     │
-│  POST   /api/v1/compile          Compile clauses to artifacts      │
-│                                                                    │
-│  Validation & Tracing                                              │
-│  ────────────────────                                              │
-│  GET    /api/v1/trace/{id}       Get validation trace              │
-│  GET    /api/v1/artifacts        List artifacts                    │
+│  Clauses & Rules                                                   │
+│  ───────────────                                                   │
+│  GET    /api/v1/clauses/{doc_id}    Get clauses for a document    │
+│  GET    /api/v1/rules/{clause_id}   Get compiled rules for clause │
+│  POST   /api/v1/compile             Compile document to artifacts │
 │                                                                    │
 │  Schema Management                                                 │
 │  ─────────────────                                                 │
-│  GET    /api/v1/schemas          List registered schemas           │
-│  POST   /api/v1/schemas          Register new schema               │
+│  GET    /api/v1/schemas             List registered schemas        │
+│  GET    /api/v1/schemas/{schema_id} Get a specific schema          │
+│  POST   /api/v1/schemas             Register new schema            │
 │                                                                    │
 │  System                                                            │
 │  ──────                                                            │
-│  GET    /api/v1/health           Health check                      │
-│  GET    /api/v1/jobs/{id}        Get async job status              │
+│  GET    /api/v1/health              Health check                   │
+│  GET    /api/v1/jobs/{job_id}       Get async job status           │
 │                                                                    │
 └────────────────────────────────────────────────────────────────────┘
 ```
@@ -455,8 +442,8 @@ External Access:
 │                                                                      │
 │  Layer 2: Authentication                                            │
 │  ───────────────────────                                            │
-│  • API key validation                                               │
-│  • JWT token support (optional)                                     │
+│  • API key validation (X-API-Key header)                            │
+│  • Disable auth for development (AEGISLANG_DISABLE_AUTH=true)       │
 │                                                                      │
 │  Layer 3: Input Validation                                          │
 │  ─────────────────────────                                          │
@@ -483,32 +470,12 @@ External Access:
 
 ## Integration Points
 
-### NatLangChain Ecosystem
+### External Integrations (Future)
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                   NatLangChain Ecosystem Integration                 │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐             │
-│  │  AegisLang  │◄──▶│  Agent-OS   │◄──▶│ NatLangChain│             │
-│  │  (Compiler) │    │ (Orchestr.) │    │ (Blockchain)│             │
-│  └─────────────┘    └─────────────┘    └─────────────┘             │
-│        │                  │                   │                     │
-│        │                  │                   │                     │
-│        ▼                  ▼                   ▼                     │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │                    Redis Event Bus                           │   │
-│  │                                                              │   │
-│  │  Topics:                                                     │   │
-│  │  • policy.ingested    • policy.parsed                        │   │
-│  │  • policy.mapped      • policy.compiled                      │   │
-│  │  • policy.validated   • policy.error                         │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
+NatLangChain and Agent-OS integrations are not currently on the roadmap. See [ROADMAP.md](../ROADMAP.md) for planned features.
+
+The Docker Compose stack includes Redis, which can serve as an event bus for future integrations if needed.
 
 ---
 
-*Last updated: 2024-01-10 | Version: 1.0.0*
+*Last updated: February 2026 | Version: 0.1.0*

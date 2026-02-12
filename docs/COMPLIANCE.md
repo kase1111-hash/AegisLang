@@ -120,7 +120,7 @@ CREATE TABLE compliance_audit_log (
 
 | Requirement | Implementation | Status |
 |-------------|----------------|--------|
-| Access Control | API keys, JWT support | ✅ |
+| Access Control | API key authentication (X-API-Key header) | ✅ |
 | Audit Controls | Comprehensive logging | ✅ |
 | Integrity Controls | Content hashing | ✅ |
 | Transmission Security | TLS encryption | ✅ |
@@ -245,7 +245,7 @@ control:
 ├─────────────────────────────────────────────────────────┤
 │ Layer 1: Network          │ Docker isolation, CORS      │
 │ Layer 2: Transport        │ TLS 1.2+                    │
-│ Layer 3: Authentication   │ API keys, JWT (optional)    │
+│ Layer 3: Authentication   │ API keys (X-API-Key header) │
 │ Layer 4: Authorization    │ Role-based (configurable)   │
 │ Layer 5: Input Validation │ Pydantic models             │
 │ Layer 6: Data Protection  │ Parameterized queries       │
@@ -347,11 +347,11 @@ User Document → AegisLang (On-Premises) → Generated Artifacts
 
 ## Attestation
 
-This compliance review was performed on: **2024-01-10**
+This compliance review was performed on: **February 2026**
 
-Review covers: AegisLang v1.0.0
+Review covers: AegisLang v0.1.0 (Alpha)
 
-Next review due: **2025-01-10**
+Next review due: **August 2026**
 
 ---
 

@@ -13,7 +13,7 @@ policy_doc → AegisIngestor → PolicyParser → SchemaMapper → Compiler → 
 | Stage | Agent | Input | Output |
 |-------|-------|-------|--------|
 | **L1 Ingest** | `AegisIngestor` | Raw document (PDF/DOCX/MD/HTML) | Structured sections + text chunks |
-| **L2 Parse** | `PolicyParserAgent` | Text chunks | Typed clauses (obligation/prohibition/permission/conditional) |
+| **L2 Parse** | `PolicyParserAgent` | Text chunks | Typed clauses (obligation/prohibition/permission/conditional/definition/exception) |
 | **L3 Map** | `SchemaMappingAgent` | Parsed clauses | Entity-to-schema-field mappings |
 | **L4 Compile** | `CompilerAgent` | Mapped clauses | YAML, SQL, Python artifacts via Jinja2 templates |
 | **L5 Validate** | `TraceValidatorAgent` | Artifacts + source data | Provenance traces + validation results |
@@ -26,7 +26,7 @@ policy_doc → AegisIngestor → PolicyParser → SchemaMapper → Compiler → 
 |------------|-------------------|
 | Full 5-stage pipeline end-to-end | Real LLM extraction not validated on production docs |
 | Mock LLM mode for offline dev/testing | Schema mapping depends on LLM entity extraction quality |
-| PDF, DOCX, Markdown, HTML ingestion | No persistent storage (in-memory only) |
+| PDF, DOCX, Markdown, HTML ingestion | SQLite persistence available but not default |
 | YAML, SQL, Python artifact generation | SQL artifacts reference generic tables without mapping |
 | Clause-to-artifact traceability (100%) | Cross-reference resolution between clauses |
 | REST API with OpenAPI docs | No web UI |
@@ -71,21 +71,23 @@ See [`examples/aml_evaluation.md`](examples/aml_evaluation.md) for the full qual
 
 ```
 aegislang/
-├── agents/                  # Pipeline agents (L1-L5)
-│   ├── aegis_ingestor.py    # L1: Document ingestion + chunking
-│   ├── policy_parser_agent.py   # L2: Clause extraction (LLM-driven)
-│   ├── schema_mapping_agent.py  # L3: Entity-to-schema mapping
-│   ├── compiler_agent.py    # L4: Artifact generation (Jinja2)
+├── agents/                    # Pipeline agents (L1-L5)
+│   ├── aegis_ingestor.py      # L1: Document ingestion + chunking
+│   ├── policy_parser_agent.py # L2: Clause extraction (LLM-driven)
+│   ├── schema_mapping_agent.py# L3: Entity-to-schema mapping
+│   ├── compiler_agent.py      # L4: Artifact generation (Jinja2)
 │   └── trace_validator_agent.py # L5: Provenance validation
 ├── api/
-│   └── server.py            # FastAPI REST API
-├── core/
-│   ├── errors.py            # Error handling
-│   └── logging.py           # Structured logging (structlog)
-└── templates/               # Jinja2 compilation templates
-    ├── yaml/
-    ├── sql/
-    └── python/
+│   ├── server.py              # FastAPI REST API
+│   └── sqlite_storage.py     # SQLite persistent storage backend
+└── core/
+    ├── errors.py              # Error handling
+    └── logging.py             # Structured logging (structlog)
+
+templates/                     # Jinja2 compilation templates (project root)
+├── yaml/
+├── sql/
+└── python/
 ```
 
 Each agent is independently testable with mock providers. The `use_mock=True` flag on parser and mapper agents enables offline development without LLM API keys.

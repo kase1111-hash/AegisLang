@@ -62,20 +62,6 @@ pip install -r requirements.txt
 
 ---
 
-### spaCy model not found
-
-**Symptom:**
-```
-OSError: [E050] Can't find model 'en_core_web_sm'
-```
-
-**Solution:**
-```bash
-python -m spacy download en_core_web_sm
-```
-
----
-
 ## Docker Issues
 
 ### Container fails to start
@@ -582,4 +568,4 @@ LOG_LEVEL=DEBUG docker-compose up aegislang
 
 ---
 
-*Last updated: 2024-01-10 | Version: 1.0.0*
+*Last updated: February 2026 | Version: 0.1.0*
