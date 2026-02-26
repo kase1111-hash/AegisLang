@@ -455,3 +455,57 @@ class TestStatusUrlRename:
         data = response.json()
         assert "status_url" in data
         assert "webhook_url" not in data
+
+
+# =============================================================================
+# Phase 4 Remediation Tests — Parametrized Edge Cases
+# =============================================================================
+
+class TestFileExtensionValidation:
+    """Parametrized tests for file upload extension validation."""
+
+    @pytest.mark.parametrize("filename,expected_status", [
+        ("policy.md", 200),
+        ("policy.html", 200),
+        ("policy.htm", 200),
+        ("policy.markdown", 200),
+        ("POLICY.MD", 200),
+        ("policy.exe", 400),
+        ("policy.py", 400),
+        ("policy.md.exe", 400),
+        ("noextension", 400),
+    ])
+    def test_file_extension_accepted_or_rejected(
+        self, client, tmp_path, filename, expected_status,
+    ):
+        """Validate that allowed extensions pass and disallowed ones are rejected."""
+        test_file = tmp_path / "upload_test"
+        test_file.write_text("# Test policy\n\nInstitutions must comply.")
+        with open(test_file, "rb") as f:
+            response = client.post(
+                "/api/v1/ingest",
+                files={"file": (filename, f, "application/octet-stream")},
+            )
+        assert response.status_code == expected_status
+
+
+class TestClauseTypeDetectionParametrized:
+    """Parametrized clause type detection tests."""
+
+    @pytest.mark.parametrize("text,expected_type", [
+        ("Institutions must verify identity.", "obligation"),
+        ("Banks shall report all transactions.", "obligation"),
+        ("All records must be maintained for 5 years.", "obligation"),
+        ("Staff must not share confidential information.", "prohibition"),
+        ("Employees shall not access data without authorization.", "prohibition"),
+        ("Institutions may request additional documentation.", "permission"),
+        ("If a transaction exceeds $10000, then report it.", "conditional"),
+    ])
+    def test_mock_parser_clause_type(self, text, expected_type):
+        """Verify mock parser detects the correct clause type for various inputs."""
+        from aegislang.agents.policy_parser_agent import PolicyParserAgent
+        parser = PolicyParserAgent(use_mock=True)
+        result = parser.parse_clause(text, "CL001", "C001")
+        assert result.type.value == expected_type, (
+            f"Expected {expected_type} for: {text!r}, got {result.type.value}"
+        )

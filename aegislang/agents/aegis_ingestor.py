@@ -414,7 +414,13 @@ class DOCXParser(BaseDocumentParser):
                 "Install with: pip install python-docx"
             ) from e
 
-        doc = Document(str(file_path))
+        # Read via BytesIO so the file handle is closed immediately,
+        # rather than relying on python-docx internal cleanup.
+        from io import BytesIO
+
+        with open(file_path, "rb") as f:
+            docx_bytes = BytesIO(f.read())
+        doc = Document(docx_bytes)
         doc_id = self._generate_doc_id(file_path)
 
         sections: list[DocumentSection] = []
