@@ -436,7 +436,15 @@ def secure_delete_file(file_path: Path) -> None:
             pass
 
 
-async def process_ingestion(
+def _should_use_mock() -> bool:
+    """Use mock providers when no LLM API keys are available."""
+    return not (
+        os.environ.get("ANTHROPIC_API_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+    )
+
+
+def process_ingestion(
     job_id: str,
     file_path: Path,
     metadata: dict[str, Any],
@@ -479,7 +487,7 @@ async def process_ingestion(
         secure_delete_file(file_path)
 
 
-async def process_compilation(
+def process_compilation(
     job_id: str,
     doc_id: str,
     output_formats: list[str],
@@ -500,7 +508,7 @@ async def process_compilation(
         # Run parser
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
 
-        parser = PolicyParserAgent(use_mock=True)
+        parser = PolicyParserAgent(use_mock=_should_use_mock())
         parsed = parser.parse_ingested_document(doc_data)
         parsed_data = parsed.model_dump()
 
@@ -515,7 +523,7 @@ async def process_compilation(
 
         mapper = SchemaMappingAgent(
             registry=create_default_registry(),
-            use_mock=True,
+            use_mock=_should_use_mock(),
         )
         mapped = mapper.map_parsed_collection(parsed_data, target_schema)
         mapped_data = mapped.model_dump()

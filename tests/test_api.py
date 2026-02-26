@@ -326,3 +326,59 @@ class TestOpenAPI:
         response = client.get("/api/redoc")
 
         assert response.status_code == 200
+
+
+# =============================================================================
+# Phase 1 Remediation Tests
+# =============================================================================
+
+class TestBackgroundTasksAreSync:
+    """Verify background tasks are sync so FastAPI runs them in a thread pool."""
+
+    def test_process_ingestion_is_not_async(self):
+        """process_ingestion must be sync to avoid blocking the event loop."""
+        import inspect
+        from aegislang.api.server import process_ingestion
+        assert not inspect.iscoroutinefunction(process_ingestion), (
+            "process_ingestion should be a regular def, not async def"
+        )
+
+    def test_process_compilation_is_not_async(self):
+        """process_compilation must be sync to avoid blocking the event loop."""
+        import inspect
+        from aegislang.api.server import process_compilation
+        assert not inspect.iscoroutinefunction(process_compilation), (
+            "process_compilation should be a regular def, not async def"
+        )
+
+
+class TestMockModeAutoDetection:
+    """Verify mock mode is driven by environment, not hardcoded."""
+
+    def test_should_use_mock_without_keys(self, monkeypatch):
+        """Without API keys, mock mode should be enabled."""
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        from aegislang.api.server import _should_use_mock
+        assert _should_use_mock() is True
+
+    def test_should_use_mock_with_anthropic_key(self, monkeypatch):
+        """With ANTHROPIC_API_KEY set, mock mode should be disabled."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        from aegislang.api.server import _should_use_mock
+        assert _should_use_mock() is False
+
+    def test_should_use_mock_with_openai_key(self, monkeypatch):
+        """With OPENAI_API_KEY set, mock mode should be disabled."""
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
+        from aegislang.api.server import _should_use_mock
+        assert _should_use_mock() is False
+
+    def test_should_use_mock_with_both_keys(self, monkeypatch):
+        """With both keys set, mock mode should be disabled."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
+        from aegislang.api.server import _should_use_mock
+        assert _should_use_mock() is False
