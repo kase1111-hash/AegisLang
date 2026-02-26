@@ -170,6 +170,20 @@ def get_neo4j_pool() -> Neo4jConnectionPool:
 
 
 # -----------------------------------------------------------------------------
+# Cypher query safety — only these values may be interpolated into labels
+# and relationship types. Everything else is parameterized via $variables.
+# -----------------------------------------------------------------------------
+
+ALLOWED_NODE_TYPES = frozenset({
+    "document", "section", "chunk", "clause", "mapping", "artifact",
+})
+ALLOWED_RELATIONSHIPS = frozenset({
+    "CONTAINS_SECTION", "CONTAINS_CHUNK", "PARSED_TO",
+    "MAPPED_TO", "COMPILED_TO",
+})
+
+
+# -----------------------------------------------------------------------------
 # Schema Definitions
 # -----------------------------------------------------------------------------
 
@@ -943,6 +957,13 @@ class TraceValidatorAgent:
             with session:
                 # Create nodes
                 for node in graph.nodes:
+                    if node.node_type not in ALLOWED_NODE_TYPES:
+                        logger.error(
+                            "invalid_node_type",
+                            node_type=node.node_type,
+                            allowed=list(ALLOWED_NODE_TYPES),
+                        )
+                        continue
                     session.run(
                         f"""
                         MERGE (n:{node.node_type} {{node_id: $node_id}})
@@ -956,6 +977,13 @@ class TraceValidatorAgent:
 
                 # Create edges
                 for edge in graph.edges:
+                    if edge.relationship not in ALLOWED_RELATIONSHIPS:
+                        logger.error(
+                            "invalid_relationship",
+                            relationship=edge.relationship,
+                            allowed=list(ALLOWED_RELATIONSHIPS),
+                        )
+                        continue
                     session.run(
                         f"""
                         MATCH (a {{node_id: $source_id}})

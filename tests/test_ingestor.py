@@ -88,6 +88,19 @@ class TestSemanticChunker:
         assert token_count > 0
         assert token_count < 20  # Simple sentence should be small
 
+    @pytest.mark.parametrize("text,expected_chunks", [
+        ("", 0),
+        ("   \n\n   ", 0),
+        ("Hello.", 1),
+        ("This is a single paragraph of text for testing.", 1),
+    ])
+    def test_chunk_text_edge_cases(self, chunker, text, expected_chunks):
+        """Test chunking with various edge case inputs."""
+        chunks = chunker.chunk_text(text, "EDGE_S001")
+        assert len(chunks) == expected_chunks
+        for chunk in chunks:
+            assert chunk.token_count > 0
+
     def test_chunk_empty_text(self, chunker):
         """Test chunking empty text."""
         chunks = chunker.chunk_text("", "TEST_S001")

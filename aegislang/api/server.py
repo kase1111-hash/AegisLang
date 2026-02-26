@@ -9,6 +9,7 @@ Base URL: /api/v1
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -26,11 +27,13 @@ from pathlib import Path
 from typing import Any
 
 import structlog
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, BackgroundTasks, Depends, Security
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, BackgroundTasks, Depends, Security
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
+
+from aegislang.core.logging import set_request_context, clear_request_context
 
 logger = structlog.get_logger(__name__)
 
@@ -176,9 +179,23 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["X-API-Key", "Content-Type", "X-Request-ID", "Accept"],
 )
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    """Assign a request ID to every request for tracing through logs and errors."""
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    request.state.request_id = request_id
+    set_request_context(request_id)
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+    finally:
+        clear_request_context()
 
 
 # =============================================================================
@@ -207,7 +224,7 @@ class IngestResponse(BaseModel):
     job_id: str = Field(..., description="Async job ID")
     doc_id: str = Field(..., description="Document ID")
     estimated_completion: str | None = Field(default=None, description="Estimated completion time")
-    webhook_url: str = Field(..., description="URL to check job status")
+    status_url: str = Field(..., description="URL to poll for job status")
 
 
 class CompileRequest(BaseModel):
@@ -277,8 +294,9 @@ class Storage:
             os.environ.get("AEGISLANG_JOB_TTL_SECONDS", str(self.DEFAULT_JOB_TTL))
         )
 
-        # Lock for thread-safe cleanup
-        self._cleanup_lock = threading.Lock()
+        # Lock for thread-safe reads and writes across request handlers
+        # and the background cleanup thread
+        self._lock = threading.Lock()
         self._last_cleanup = time.time()
 
         # Log warning once per process
@@ -306,7 +324,7 @@ class Storage:
 
     def _cleanup_expired_jobs(self) -> None:
         """Remove jobs that have exceeded their TTL."""
-        with self._cleanup_lock:
+        with self._lock:
             now = datetime.now(timezone.utc)
             expired_jobs = []
 
@@ -349,15 +367,16 @@ class Storage:
             self._last_cleanup = time.time()
 
         job_id = f"{job_type}_{uuid.uuid4().hex[:8]}"
-        self.jobs[job_id] = {
-            "job_id": job_id,
-            "job_type": job_type,
-            "status": JobStatus.PENDING,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "completed_at": None,
-            "result": None,
-            "error": None,
-        }
+        with self._lock:
+            self.jobs[job_id] = {
+                "job_id": job_id,
+                "job_type": job_type,
+                "status": JobStatus.PENDING,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "completed_at": None,
+                "result": None,
+                "error": None,
+            }
         return job_id
 
     def update_job(
@@ -368,12 +387,28 @@ class Storage:
         error: str | None = None,
     ) -> None:
         """Update job status."""
-        if job_id in self.jobs:
-            self.jobs[job_id]["status"] = status
-            self.jobs[job_id]["result"] = result
-            self.jobs[job_id]["error"] = error
-            if status in (JobStatus.COMPLETED, JobStatus.FAILED):
-                self.jobs[job_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+        with self._lock:
+            if job_id in self.jobs:
+                self.jobs[job_id]["status"] = status
+                self.jobs[job_id]["result"] = result
+                self.jobs[job_id]["error"] = error
+                if status in (JobStatus.COMPLETED, JobStatus.FAILED):
+                    self.jobs[job_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+    def store_document(self, doc_id: str, doc_data: dict[str, Any]) -> None:
+        """Thread-safe document storage."""
+        with self._lock:
+            self.documents[doc_id] = doc_data
+
+    def store_clauses(self, doc_id: str, clauses: list[dict[str, Any]]) -> None:
+        """Thread-safe clause storage."""
+        with self._lock:
+            self.clauses[doc_id] = clauses
+
+    def store_artifacts(self, doc_id: str, artifacts: list[dict[str, Any]]) -> None:
+        """Thread-safe artifact storage."""
+        with self._lock:
+            self.artifacts[doc_id] = artifacts
 
 
 def _create_storage() -> Storage:
@@ -436,7 +471,15 @@ def secure_delete_file(file_path: Path) -> None:
             pass
 
 
-async def process_ingestion(
+def _should_use_mock() -> bool:
+    """Use mock providers when no LLM API keys are available."""
+    return not (
+        os.environ.get("ANTHROPIC_API_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+    )
+
+
+def process_ingestion(
     job_id: str,
     file_path: Path,
     metadata: dict[str, Any],
@@ -460,7 +503,7 @@ async def process_ingestion(
         doc_data = result.model_dump()
         doc_data["metadata"].update(metadata)
         doc_data["doc_id"] = storage_key
-        storage.documents[storage_key] = doc_data
+        storage.store_document(storage_key, doc_data)
 
         storage.update_job(
             job_id,
@@ -479,7 +522,7 @@ async def process_ingestion(
         secure_delete_file(file_path)
 
 
-async def process_compilation(
+def process_compilation(
     job_id: str,
     doc_id: str,
     output_formats: list[str],
@@ -500,12 +543,12 @@ async def process_compilation(
         # Run parser
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
 
-        parser = PolicyParserAgent(use_mock=True)
+        parser = PolicyParserAgent(use_mock=_should_use_mock())
         parsed = parser.parse_ingested_document(doc_data)
         parsed_data = parsed.model_dump()
 
         # Store clauses
-        storage.clauses[doc_id] = parsed_data.get("clauses", [])
+        storage.store_clauses(doc_id, parsed_data.get("clauses", []))
 
         # Run mapper
         from aegislang.agents.schema_mapping_agent import (
@@ -515,7 +558,7 @@ async def process_compilation(
 
         mapper = SchemaMappingAgent(
             registry=create_default_registry(),
-            use_mock=True,
+            use_mock=_should_use_mock(),
         )
         mapped = mapper.map_parsed_collection(parsed_data, target_schema)
         mapped_data = mapped.model_dump()
@@ -529,7 +572,7 @@ async def process_compilation(
         compiled_data = compiled.model_dump()
 
         # Store artifacts
-        storage.artifacts[doc_id] = compiled_data.get("artifacts", [])
+        storage.store_artifacts(doc_id, compiled_data.get("artifacts", []))
 
         # Run validator
         from aegislang.agents.trace_validator_agent import (
@@ -681,7 +724,7 @@ async def ingest_document(
         status="accepted",
         job_id=job_id,
         doc_id=doc_id,
-        webhook_url=f"/api/v1/jobs/{job_id}",
+        status_url=f"/api/v1/jobs/{job_id}",
     )
 
 
@@ -787,7 +830,7 @@ async def compile_document(
         "status": "accepted",
         "job_id": job_id,
         "doc_id": request.doc_id,
-        "webhook_url": f"/api/v1/jobs/{job_id}",
+        "status_url": f"/api/v1/jobs/{job_id}",
     }
 
 
@@ -803,6 +846,40 @@ async def get_job_status(
 
     job = storage.jobs[job_id]
     return JobResponse(**job)
+
+
+@app.get("/api/v1/jobs/{job_id}/stream", tags=["Jobs"])
+async def stream_job_status(
+    job_id: str,
+    storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
+) -> StreamingResponse:
+    """Stream job status updates via Server-Sent Events. Requires X-API-Key header."""
+    if job_id not in storage.jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    async def event_generator():
+        while True:
+            if job_id not in storage.jobs:
+                break
+            job = storage.jobs[job_id]
+            status = job["status"]
+            data = json.dumps({
+                "job_id": job_id,
+                "status": status.value if isinstance(status, JobStatus) else status,
+                "result": job.get("result"),
+                "error": job.get("error"),
+            })
+            yield f"data: {data}\n\n"
+            if status in (JobStatus.COMPLETED, JobStatus.FAILED):
+                break
+            await asyncio.sleep(1)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/api/v1/schemas", tags=["Schemas"])
@@ -874,6 +951,18 @@ def main() -> None:
     port = int(os.environ.get("PORT", "8080"))
     workers = int(os.environ.get("WORKERS", "4"))
     reload = os.environ.get("RELOAD", "false").lower() == "true"
+    backend = os.environ.get("AEGISLANG_STORAGE_BACKEND", "memory").lower()
+
+    # In-memory storage cannot be shared across workers — each worker
+    # gets its own Storage instance, so data ingested via one worker
+    # is invisible to another.
+    if backend == "memory" and workers > 1:
+        logger.warning(
+            "forcing_single_worker",
+            message="In-memory storage requires workers=1. "
+                    "Set AEGISLANG_STORAGE_BACKEND=sqlite for multi-worker.",
+        )
+        workers = 1
 
     uvicorn.run(
         "aegislang.api.server:app",

@@ -85,7 +85,7 @@ class TestDocumentIngestion:
         assert data["status"] == "accepted"
         assert "job_id" in data
         assert "doc_id" in data
-        assert "webhook_url" in data
+        assert "status_url" in data
 
     def test_ingest_with_metadata(self, client, sample_markdown_file):
         """Test ingestion with custom metadata."""
@@ -326,3 +326,186 @@ class TestOpenAPI:
         response = client.get("/api/redoc")
 
         assert response.status_code == 200
+
+
+# =============================================================================
+# Phase 1 Remediation Tests
+# =============================================================================
+
+class TestBackgroundTasksAreSync:
+    """Verify background tasks are sync so FastAPI runs them in a thread pool."""
+
+    def test_process_ingestion_is_not_async(self):
+        """process_ingestion must be sync to avoid blocking the event loop."""
+        import inspect
+        from aegislang.api.server import process_ingestion
+        assert not inspect.iscoroutinefunction(process_ingestion), (
+            "process_ingestion should be a regular def, not async def"
+        )
+
+    def test_process_compilation_is_not_async(self):
+        """process_compilation must be sync to avoid blocking the event loop."""
+        import inspect
+        from aegislang.api.server import process_compilation
+        assert not inspect.iscoroutinefunction(process_compilation), (
+            "process_compilation should be a regular def, not async def"
+        )
+
+
+class TestMockModeAutoDetection:
+    """Verify mock mode is driven by environment, not hardcoded."""
+
+    def test_should_use_mock_without_keys(self, monkeypatch):
+        """Without API keys, mock mode should be enabled."""
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        from aegislang.api.server import _should_use_mock
+        assert _should_use_mock() is True
+
+    def test_should_use_mock_with_anthropic_key(self, monkeypatch):
+        """With ANTHROPIC_API_KEY set, mock mode should be disabled."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        from aegislang.api.server import _should_use_mock
+        assert _should_use_mock() is False
+
+    def test_should_use_mock_with_openai_key(self, monkeypatch):
+        """With OPENAI_API_KEY set, mock mode should be disabled."""
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
+        from aegislang.api.server import _should_use_mock
+        assert _should_use_mock() is False
+
+    def test_should_use_mock_with_both_keys(self, monkeypatch):
+        """With both keys set, mock mode should be disabled."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
+        from aegislang.api.server import _should_use_mock
+        assert _should_use_mock() is False
+
+
+# =============================================================================
+# Phase 3 Remediation Tests
+# =============================================================================
+
+class TestRequestIdMiddleware:
+    """Verify request ID middleware is wired in and functional."""
+
+    def test_request_id_returned_in_response(self, client):
+        """Every response should include an X-Request-ID header."""
+        response = client.get("/api/v1/health")
+        assert "X-Request-ID" in response.headers
+        # Auto-generated ID should be a valid UUID
+        rid = response.headers["X-Request-ID"]
+        assert len(rid) == 36  # UUID format: 8-4-4-4-12
+
+    def test_custom_request_id_propagated(self, client):
+        """Client-supplied X-Request-ID should be echoed back."""
+        response = client.get(
+            "/api/v1/health",
+            headers={"X-Request-ID": "test-req-123"},
+        )
+        assert response.headers["X-Request-ID"] == "test-req-123"
+
+
+class TestSSEJobStream:
+    """Verify the SSE job streaming endpoint."""
+
+    def test_stream_nonexistent_job(self, client):
+        """Streaming a nonexistent job should return 404."""
+        response = client.get("/api/v1/jobs/nonexistent_job/stream")
+        assert response.status_code == 404
+
+    def test_stream_completed_job(self, client, sample_markdown_file):
+        """Streaming a completed job should emit at least one SSE event then stop."""
+        # Create a job via ingestion
+        with open(sample_markdown_file, "rb") as f:
+            ingest_response = client.post(
+                "/api/v1/ingest",
+                files={"file": ("test.md", f, "text/markdown")},
+            )
+        job_id = ingest_response.json()["job_id"]
+
+        # Wait for job to complete (it runs in background during test)
+        import time
+        for _ in range(20):
+            status = client.get(f"/api/v1/jobs/{job_id}").json()["status"]
+            if status in ("completed", "failed"):
+                break
+            time.sleep(0.1)
+
+        # Stream should emit one event with final status and stop
+        response = client.get(f"/api/v1/jobs/{job_id}/stream")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+        body = response.text
+        assert "data:" in body
+
+
+class TestStatusUrlRename:
+    """Verify webhook_url was renamed to status_url."""
+
+    def test_ingest_returns_status_url(self, client, sample_markdown_file):
+        """Ingest response should use status_url, not webhook_url."""
+        with open(sample_markdown_file, "rb") as f:
+            response = client.post(
+                "/api/v1/ingest",
+                files={"file": ("test.md", f, "text/markdown")},
+            )
+        data = response.json()
+        assert "status_url" in data
+        assert "webhook_url" not in data
+
+
+# =============================================================================
+# Phase 4 Remediation Tests — Parametrized Edge Cases
+# =============================================================================
+
+class TestFileExtensionValidation:
+    """Parametrized tests for file upload extension validation."""
+
+    @pytest.mark.parametrize("filename,expected_status", [
+        ("policy.md", 200),
+        ("policy.html", 200),
+        ("policy.htm", 200),
+        ("policy.markdown", 200),
+        ("POLICY.MD", 200),
+        ("policy.exe", 400),
+        ("policy.py", 400),
+        ("policy.md.exe", 400),
+        ("noextension", 400),
+    ])
+    def test_file_extension_accepted_or_rejected(
+        self, client, tmp_path, filename, expected_status,
+    ):
+        """Validate that allowed extensions pass and disallowed ones are rejected."""
+        test_file = tmp_path / "upload_test"
+        test_file.write_text("# Test policy\n\nInstitutions must comply.")
+        with open(test_file, "rb") as f:
+            response = client.post(
+                "/api/v1/ingest",
+                files={"file": (filename, f, "application/octet-stream")},
+            )
+        assert response.status_code == expected_status
+
+
+class TestClauseTypeDetectionParametrized:
+    """Parametrized clause type detection tests."""
+
+    @pytest.mark.parametrize("text,expected_type", [
+        ("Institutions must verify identity.", "obligation"),
+        ("Banks shall report all transactions.", "obligation"),
+        ("All records must be maintained for 5 years.", "obligation"),
+        ("Staff must not share confidential information.", "prohibition"),
+        ("Employees shall not access data without authorization.", "prohibition"),
+        ("Institutions may request additional documentation.", "permission"),
+        ("If a transaction exceeds $10000, then report it.", "conditional"),
+    ])
+    def test_mock_parser_clause_type(self, text, expected_type):
+        """Verify mock parser detects the correct clause type for various inputs."""
+        from aegislang.agents.policy_parser_agent import PolicyParserAgent
+        parser = PolicyParserAgent(use_mock=True)
+        result = parser.parse_clause(text, "CL001", "C001")
+        assert result.type.value == expected_type, (
+            f"Expected {expected_type} for: {text!r}, got {result.type.value}"
+        )

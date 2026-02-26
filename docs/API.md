@@ -132,7 +132,7 @@ Upload and parse a new policy document. This endpoint accepts multipart form dat
 | `job_id` | string | Async job ID for tracking |
 | `doc_id` | string | Assigned document ID |
 | `estimated_completion` | string | Estimated completion time (optional) |
-| `webhook_url` | string | URL to check job status |
+| `status_url` | string | URL to check job status |
 
 **Example Request (cURL):**
 
@@ -149,7 +149,7 @@ curl -X POST "http://localhost:8080/api/v1/ingest" \
   "status": "accepted",
   "job_id": "ing_a1b2c3d4",
   "doc_id": "AML_POLICY_E5F6G7",
-  "webhook_url": "/api/v1/jobs/ing_a1b2c3d4"
+  "status_url": "/api/v1/jobs/ing_a1b2c3d4"
 }
 ```
 
@@ -313,7 +313,7 @@ Trigger the full compilation pipeline for a document. This runs parsing, mapping
   "status": "accepted",
   "job_id": "cmp_h8i9j0k1",
   "doc_id": "AML_POLICY_E5F6G7",
-  "webhook_url": "/api/v1/jobs/cmp_h8i9j0k1"
+  "status_url": "/api/v1/jobs/cmp_h8i9j0k1"
 }
 ```
 
