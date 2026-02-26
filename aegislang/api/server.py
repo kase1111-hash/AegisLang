@@ -9,6 +9,7 @@ Base URL: /api/v1
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -26,11 +27,13 @@ from pathlib import Path
 from typing import Any
 
 import structlog
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, BackgroundTasks, Depends, Security
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, BackgroundTasks, Depends, Security
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
+
+from aegislang.core.logging import set_request_context, clear_request_context
 
 logger = structlog.get_logger(__name__)
 
@@ -176,9 +179,23 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["X-API-Key", "Content-Type", "X-Request-ID", "Accept"],
 )
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    """Assign a request ID to every request for tracing through logs and errors."""
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    request.state.request_id = request_id
+    set_request_context(request_id)
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+    finally:
+        clear_request_context()
 
 
 # =============================================================================
@@ -207,7 +224,7 @@ class IngestResponse(BaseModel):
     job_id: str = Field(..., description="Async job ID")
     doc_id: str = Field(..., description="Document ID")
     estimated_completion: str | None = Field(default=None, description="Estimated completion time")
-    webhook_url: str = Field(..., description="URL to check job status")
+    status_url: str = Field(..., description="URL to poll for job status")
 
 
 class CompileRequest(BaseModel):
@@ -707,7 +724,7 @@ async def ingest_document(
         status="accepted",
         job_id=job_id,
         doc_id=doc_id,
-        webhook_url=f"/api/v1/jobs/{job_id}",
+        status_url=f"/api/v1/jobs/{job_id}",
     )
 
 
@@ -813,7 +830,7 @@ async def compile_document(
         "status": "accepted",
         "job_id": job_id,
         "doc_id": request.doc_id,
-        "webhook_url": f"/api/v1/jobs/{job_id}",
+        "status_url": f"/api/v1/jobs/{job_id}",
     }
 
 
@@ -829,6 +846,40 @@ async def get_job_status(
 
     job = storage.jobs[job_id]
     return JobResponse(**job)
+
+
+@app.get("/api/v1/jobs/{job_id}/stream", tags=["Jobs"])
+async def stream_job_status(
+    job_id: str,
+    storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
+) -> StreamingResponse:
+    """Stream job status updates via Server-Sent Events. Requires X-API-Key header."""
+    if job_id not in storage.jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    async def event_generator():
+        while True:
+            if job_id not in storage.jobs:
+                break
+            job = storage.jobs[job_id]
+            status = job["status"]
+            data = json.dumps({
+                "job_id": job_id,
+                "status": status.value if isinstance(status, JobStatus) else status,
+                "result": job.get("result"),
+                "error": job.get("error"),
+            })
+            yield f"data: {data}\n\n"
+            if status in (JobStatus.COMPLETED, JobStatus.FAILED):
+                break
+            await asyncio.sleep(1)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/api/v1/schemas", tags=["Schemas"])

@@ -85,7 +85,7 @@ class TestDocumentIngestion:
         assert data["status"] == "accepted"
         assert "job_id" in data
         assert "doc_id" in data
-        assert "webhook_url" in data
+        assert "status_url" in data
 
     def test_ingest_with_metadata(self, client, sample_markdown_file):
         """Test ingestion with custom metadata."""
@@ -382,3 +382,76 @@ class TestMockModeAutoDetection:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
         from aegislang.api.server import _should_use_mock
         assert _should_use_mock() is False
+
+
+# =============================================================================
+# Phase 3 Remediation Tests
+# =============================================================================
+
+class TestRequestIdMiddleware:
+    """Verify request ID middleware is wired in and functional."""
+
+    def test_request_id_returned_in_response(self, client):
+        """Every response should include an X-Request-ID header."""
+        response = client.get("/api/v1/health")
+        assert "X-Request-ID" in response.headers
+        # Auto-generated ID should be a valid UUID
+        rid = response.headers["X-Request-ID"]
+        assert len(rid) == 36  # UUID format: 8-4-4-4-12
+
+    def test_custom_request_id_propagated(self, client):
+        """Client-supplied X-Request-ID should be echoed back."""
+        response = client.get(
+            "/api/v1/health",
+            headers={"X-Request-ID": "test-req-123"},
+        )
+        assert response.headers["X-Request-ID"] == "test-req-123"
+
+
+class TestSSEJobStream:
+    """Verify the SSE job streaming endpoint."""
+
+    def test_stream_nonexistent_job(self, client):
+        """Streaming a nonexistent job should return 404."""
+        response = client.get("/api/v1/jobs/nonexistent_job/stream")
+        assert response.status_code == 404
+
+    def test_stream_completed_job(self, client, sample_markdown_file):
+        """Streaming a completed job should emit at least one SSE event then stop."""
+        # Create a job via ingestion
+        with open(sample_markdown_file, "rb") as f:
+            ingest_response = client.post(
+                "/api/v1/ingest",
+                files={"file": ("test.md", f, "text/markdown")},
+            )
+        job_id = ingest_response.json()["job_id"]
+
+        # Wait for job to complete (it runs in background during test)
+        import time
+        for _ in range(20):
+            status = client.get(f"/api/v1/jobs/{job_id}").json()["status"]
+            if status in ("completed", "failed"):
+                break
+            time.sleep(0.1)
+
+        # Stream should emit one event with final status and stop
+        response = client.get(f"/api/v1/jobs/{job_id}/stream")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+        body = response.text
+        assert "data:" in body
+
+
+class TestStatusUrlRename:
+    """Verify webhook_url was renamed to status_url."""
+
+    def test_ingest_returns_status_url(self, client, sample_markdown_file):
+        """Ingest response should use status_url, not webhook_url."""
+        with open(sample_markdown_file, "rb") as f:
+            response = client.post(
+                "/api/v1/ingest",
+                files={"file": ("test.md", f, "text/markdown")},
+            )
+        data = response.json()
+        assert "status_url" in data
+        assert "webhook_url" not in data
