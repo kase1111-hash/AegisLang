@@ -277,8 +277,9 @@ class Storage:
             os.environ.get("AEGISLANG_JOB_TTL_SECONDS", str(self.DEFAULT_JOB_TTL))
         )
 
-        # Lock for thread-safe cleanup
-        self._cleanup_lock = threading.Lock()
+        # Lock for thread-safe reads and writes across request handlers
+        # and the background cleanup thread
+        self._lock = threading.Lock()
         self._last_cleanup = time.time()
 
         # Log warning once per process
@@ -306,7 +307,7 @@ class Storage:
 
     def _cleanup_expired_jobs(self) -> None:
         """Remove jobs that have exceeded their TTL."""
-        with self._cleanup_lock:
+        with self._lock:
             now = datetime.now(timezone.utc)
             expired_jobs = []
 
@@ -349,15 +350,16 @@ class Storage:
             self._last_cleanup = time.time()
 
         job_id = f"{job_type}_{uuid.uuid4().hex[:8]}"
-        self.jobs[job_id] = {
-            "job_id": job_id,
-            "job_type": job_type,
-            "status": JobStatus.PENDING,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "completed_at": None,
-            "result": None,
-            "error": None,
-        }
+        with self._lock:
+            self.jobs[job_id] = {
+                "job_id": job_id,
+                "job_type": job_type,
+                "status": JobStatus.PENDING,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "completed_at": None,
+                "result": None,
+                "error": None,
+            }
         return job_id
 
     def update_job(
@@ -368,12 +370,28 @@ class Storage:
         error: str | None = None,
     ) -> None:
         """Update job status."""
-        if job_id in self.jobs:
-            self.jobs[job_id]["status"] = status
-            self.jobs[job_id]["result"] = result
-            self.jobs[job_id]["error"] = error
-            if status in (JobStatus.COMPLETED, JobStatus.FAILED):
-                self.jobs[job_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+        with self._lock:
+            if job_id in self.jobs:
+                self.jobs[job_id]["status"] = status
+                self.jobs[job_id]["result"] = result
+                self.jobs[job_id]["error"] = error
+                if status in (JobStatus.COMPLETED, JobStatus.FAILED):
+                    self.jobs[job_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+    def store_document(self, doc_id: str, doc_data: dict[str, Any]) -> None:
+        """Thread-safe document storage."""
+        with self._lock:
+            self.documents[doc_id] = doc_data
+
+    def store_clauses(self, doc_id: str, clauses: list[dict[str, Any]]) -> None:
+        """Thread-safe clause storage."""
+        with self._lock:
+            self.clauses[doc_id] = clauses
+
+    def store_artifacts(self, doc_id: str, artifacts: list[dict[str, Any]]) -> None:
+        """Thread-safe artifact storage."""
+        with self._lock:
+            self.artifacts[doc_id] = artifacts
 
 
 def _create_storage() -> Storage:
@@ -468,7 +486,7 @@ def process_ingestion(
         doc_data = result.model_dump()
         doc_data["metadata"].update(metadata)
         doc_data["doc_id"] = storage_key
-        storage.documents[storage_key] = doc_data
+        storage.store_document(storage_key, doc_data)
 
         storage.update_job(
             job_id,
@@ -513,7 +531,7 @@ def process_compilation(
         parsed_data = parsed.model_dump()
 
         # Store clauses
-        storage.clauses[doc_id] = parsed_data.get("clauses", [])
+        storage.store_clauses(doc_id, parsed_data.get("clauses", []))
 
         # Run mapper
         from aegislang.agents.schema_mapping_agent import (
@@ -537,7 +555,7 @@ def process_compilation(
         compiled_data = compiled.model_dump()
 
         # Store artifacts
-        storage.artifacts[doc_id] = compiled_data.get("artifacts", [])
+        storage.store_artifacts(doc_id, compiled_data.get("artifacts", []))
 
         # Run validator
         from aegislang.agents.trace_validator_agent import (
@@ -882,6 +900,18 @@ def main() -> None:
     port = int(os.environ.get("PORT", "8080"))
     workers = int(os.environ.get("WORKERS", "4"))
     reload = os.environ.get("RELOAD", "false").lower() == "true"
+    backend = os.environ.get("AEGISLANG_STORAGE_BACKEND", "memory").lower()
+
+    # In-memory storage cannot be shared across workers — each worker
+    # gets its own Storage instance, so data ingested via one worker
+    # is invisible to another.
+    if backend == "memory" and workers > 1:
+        logger.warning(
+            "forcing_single_worker",
+            message="In-memory storage requires workers=1. "
+                    "Set AEGISLANG_STORAGE_BACKEND=sqlite for multi-worker.",
+        )
+        workers = 1
 
     uvicorn.run(
         "aegislang.api.server:app",
