@@ -33,7 +33,7 @@
 - [ ] Perform security checks (input, encryption, tokens)
 - [ ] Perform exploit testing (SQLi, XSS, overflow)
 - [ ] Check for backdoors & unauthorized access
-- [ ] Run static analysis (lint, type check, vuln scan) — tools configured and Bandit is clean, but Ruff (~367 findings), Black (~21 files) and MyPy (~58 errors) are not clean yet
+- [x] Run static analysis (lint, type check, vuln scan) — Ruff, Black, MyPy and Bandit are clean and enforced in CI (Ruff/Black/MyPy) and `make security-check` (Bandit)
 - [ ] Run dynamic analysis (fuzzing, runtime behavior)
 
 ## Build, Deployment & Monitoring

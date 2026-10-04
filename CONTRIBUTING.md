@@ -95,7 +95,7 @@ make type-check    # Run MyPy
 make security-check  # Bandit + Safety
 ```
 
-**Known lint debt:** the codebase does not pass these checks yet. `ruff check .` reports about 367 findings, `black --check .` would reformat about two dozen files, and MyPy reports about 58 errors, so `make lint`, `make format-check`, `make type-check` and `make check-all` currently fail on code you did not touch. Please make sure your change does not add new findings (for example, run `ruff check` and `black --check` on the files you changed), and avoid mixing large reformatting with functional changes. Bandit (`make security-check`) and the test suite pass and should stay that way.
+**All checks pass:** `make lint`, `make format-check`, `make type-check`, `make security-check` and the test suite are clean, and CI enforces Ruff, Black and MyPy. Keep them clean: fix new findings rather than suppressing them, and if a rule genuinely does not fit, scope the exception in `pyproject.toml` (or a `# noqa: CODE - reason` comment) with a reason. Run MyPy in an environment with `requirements.txt` installed (`make dev-install`) so FastAPI's types are visible.
 
 ### Style Guidelines
 
@@ -109,8 +109,8 @@ make security-check  # Bandit + Safety
 
 Once installed, pre-commit hooks run on each commit. The hooks include:
 
-- Ruff (linting with `--fix`, and `ruff-format`)
-- MyPy (type checking)
+- Ruff (linting with `--fix`) and Black (formatting, same as `make format`)
+- MyPy (type checking, run with your environment's `python -m mypy`)
 - Bandit (security scanning)
 - detect-secrets and detect-private-key
 - A local Safety dependency check (for changes to `requirements*.txt`)
@@ -118,8 +118,8 @@ Once installed, pre-commit hooks run on each commit. The hooks include:
 
 Caveats with the current configuration:
 
-- The `detect-secrets` hook expects a `.secrets.baseline` file, which is not committed. Create it first with `pip install detect-secrets && detect-secrets scan > .secrets.baseline`, or skip the hook (`SKIP=detect-secrets git commit ...`).
-- The `mypy` hook fails because of the existing type errors (see Known lint debt above); use `SKIP=mypy` if it blocks an unrelated change.
+- Run `make dev-install` first: the `mypy` hook uses your installed dependencies.
+- `detect-secrets` compares against the committed `.secrets.baseline`. If it flags a false positive, review it and regenerate the baseline (`detect-secrets scan --exclude-files '^examples/output/' > .secrets.baseline`).
 - The `safety-check` hook runs the `safety` command from your environment, so install it (`pip install safety`) or skip it.
 
 If a hook fails on code you changed, fix the issues and re-commit.
@@ -190,7 +190,7 @@ Fixes #42
 ### Before Submitting
 
 1. Ensure all tests pass: `make test`
-2. Check that your change adds no new lint, formatting or type findings (see Known lint debt above) and that `make security-check` passes
+2. Run `make check-all` and `make format-check`; all checks must pass
 3. Update documentation if needed
 4. Rebase on latest upstream main:
    ```bash
@@ -207,7 +207,7 @@ Fixes #42
    - Link related issues
    - Include test plan
 
-3. **Check CI**: The CI workflow runs the lint job (`ruff check .`, `black --check .`, and MyPy as non-blocking) and the test job (`pytest` with coverage). The test job must pass. The Ruff and Black steps currently fail on `main` because of the pre-existing lint debt; make sure your change does not add new findings
+3. **Check CI**: The CI workflow runs the lint job (`ruff check .`, `black --check .`, `mypy aegislang/`) and the test job (`pytest` with coverage). Both must pass
 
 4. **Address review feedback**: Make requested changes and push updates
 

@@ -50,6 +50,9 @@ Fixes that make the code behave as `SPEC.md` and the documentation describe.
 ### Removed
 - Dead event-publishing helpers (`publish_*_event`) that imported a missing module
 
+### Changed (code quality)
+- `ruff check .`, `black --check .` and `mypy aegislang/` are clean; the CI lint job installs the runtime dependencies so MyPy sees FastAPI's types, and MyPy is now blocking. Rule exceptions are scoped in `pyproject.toml` with reasons
+
 ### Security
 - Bandit findings resolved so the Bandit step of `make security-check` passes (justified `# nosec` for constant SQLite table names (B608), the `HOST` default (B104) and a best-effort Sentry breadcrumb (B110))
 

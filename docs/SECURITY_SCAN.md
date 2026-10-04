@@ -30,7 +30,7 @@ AegisLang uses the following static analysis and scanning tools:
 | **pip-audit** | CVE scanner for dependencies | CLI |
 | **Trivy** | Filesystem vulnerability scan in CI | `.github/workflows/ci.yml` |
 
-**Current status in short:** Bandit passes. Ruff, Black and MyPy do **not** pass yet - there is pre-existing lint/type debt (see [Linting Results](#linting-results) and [Type Checking Results](#type-checking-results)).
+**Current status in short:** Bandit, Ruff, Black and MyPy all pass (see [Linting Results](#linting-results) and [Type Checking Results](#type-checking-results)).
 
 ---
 
@@ -125,7 +125,7 @@ make security-scan
 make vuln-scan
 
 # All checks (lint, type-check, security-check, test)
-make check-all   # currently stops at `lint` because of the existing lint debt
+make check-all
 ```
 
 ### Docker-based Scans
@@ -141,7 +141,7 @@ docker run --rm -v "$PWD":/src -w /src python:3.11-slim \
 
 Bandit and Safety are **not** run in CI. The GitHub Actions workflow (`.github/workflows/ci.yml`) runs:
 
-- **Lint job** (pushes and pull requests): `ruff check . --output-format=github`, `black --check .`, and `mypy aegislang/ --ignore-missing-imports` (MyPy is `continue-on-error`). The Ruff and Black steps currently fail because of the pre-existing lint debt.
+- **Lint job** (pushes and pull requests): installs `requirements.txt`, then runs `ruff check . --output-format=github`, `black --check .` and `mypy aegislang/`. All three are blocking.
 - **Security job** (pushes to `main`/`develop` only - skipped for pull requests, runs after the Docker build): a Trivy **filesystem** scan of the repository, with SARIF upload to GitHub code scanning. Both steps are `continue-on-error`, so findings never fail the pipeline.
 
 ```yaml
@@ -237,21 +237,7 @@ keys_env = os.environ.get("AEGISLANG_API_KEYS", "")
 
 ### Current Status
 
-`mypy aegislang/ --ignore-missing-imports` (the `make type-check` and CI command) currently reports **58 errors in 9 of 14 source files**. CI runs MyPy with `continue-on-error: true`, so these errors do not block merges.
-
-| Module | Errors |
-|--------|--------|
-| aegislang/api/server.py | 20 |
-| aegislang/agents/compiler_agent.py | 9 |
-| aegislang/agents/policy_parser_agent.py | 9 |
-| aegislang/core/logging.py | 7 |
-| aegislang/agents/aegis_ingestor.py | 6 |
-| aegislang/agents/trace_validator_agent.py | 6 |
-| aegislang/core/errors.py | 5 |
-| aegislang/api/sqlite_storage.py | 3 |
-| aegislang/agents/schema_mapping_agent.py | 2 |
-
-Most common error codes: `untyped-decorator` (19, mainly FastAPI route decorators), `no-any-return` (17), `no-untyped-def` (9), `no-untyped-call` (5), `arg-type` (4).
+`mypy aegislang/` reports **no issues in 14 source files** and runs as a blocking step in CI. The configuration in `pyproject.toml` enables strict-leaning flags (`disallow_untyped_defs`, `disallow_untyped_calls`, `disallow_untyped_decorators`, `disallow_any_generics`, `warn_return_any`). Run it with the runtime dependencies installed (`pip install -r requirements.txt types-PyYAML`): without them FastAPI's route decorators appear untyped.
 
 ### Type Annotations
 
@@ -269,27 +255,23 @@ class PolicyParserAgent:
         ...
 ```
 
-### Known Gaps
+### Remaining `type: ignore`
 
-- ⚠️ Some functions (notably FastAPI handlers and middleware) lack annotations
-- ⚠️ Several functions return `Any` from untyped library calls
-- ⚠️ Not all generic types are parameterized
-
-These are tracked as lint debt; they are not security findings.
+- `stmt.get_type()` in the SQL syntax validator (`sqlparse` ships no type hints)
 
 ---
 
 ## Linting Results
 
-### Current Status (known lint debt)
+### Current Status
 
 | Check | Command | Result |
 |-------|---------|--------|
-| Ruff | `ruff check .` | ❌ 367 findings (99 auto-fixable) |
-| Black | `black --check .` | ❌ 21 files would be reformatted |
-| MyPy | `mypy aegislang/ --ignore-missing-imports` | ❌ 58 errors (non-blocking in CI) |
+| Ruff | `ruff check .` | ✅ Pass |
+| Black | `black --check .` | ✅ Pass |
+| MyPy | `mypy aegislang/` | ✅ Pass (blocking in CI) |
 
-Most frequent Ruff findings: `PLC0415` import-outside-top-level (150), `I001` unsorted imports (36), `PTH123` builtin `open()` (33), `UP017` `datetime.UTC` alias (19), `ARG001` unused function argument (15). There are also 5 unused imports (`F401`).
+Rule exceptions are scoped in `pyproject.toml` with a reason: `PLC0415` (optional dependencies such as `anthropic`, `openai`, `sentence-transformers` and `neo4j` are imported lazily), `UP042` (converting `str, Enum` classes to `StrEnum` would change their `str()` output), `ARG001`/`E402` in `aegislang/api/server.py` (FastAPI auth dependencies; error handlers registered after the app), `S608` in `aegislang/api/sqlite_storage.py` (constant table names), `A002` in `compiler_agent.py` (`format` is a public keyword argument), and relaxed rules for tests and load-test scripts.
 
 ### Style Conventions
 
@@ -401,26 +383,30 @@ pre-commit install
 
 `.pre-commit-config.yaml` (abridged):
 ```yaml
+exclude: ^examples/output/
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.9
+    rev: v0.15.20
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
-      - id: ruff-format
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 26.5.1
+    hooks:
+      - id: black
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.7
     hooks:
       - id: bandit
         args: ["-c", ".bandit.yaml", "-r", "aegislang/"]
-  # also: mypy, pre-commit-hooks (whitespace, YAML/JSON/TOML checks,
+  # also: mypy (local hook, `python -m mypy aegislang/`), pre-commit-hooks (whitespace, YAML/JSON/TOML checks,
   # detect-private-key, ...), detect-secrets, validate-pyproject,
   # and a local safety-check hook
 ```
 
 **Caveats:**
-- The `detect-secrets` hook expects a `.secrets.baseline` file, which is not committed. Create one with `detect-secrets scan > .secrets.baseline` before running the hooks.
-- The `mypy` and `ruff` hooks fail on the existing lint/type debt when run against all files.
+- The `mypy` hook is a local hook that runs `python -m mypy aegislang/` in your environment, so install the dev dependencies first (`make dev-install`).
+- `.secrets.baseline` records the reviewed detect-secrets findings (all false positives: environment variable names, documentation placeholders, an example hash). Regenerate it with `detect-secrets scan --exclude-files '^examples/output/' > .secrets.baseline` after reviewing any new finding.
 - The local `safety-check` hook uses `language: system`, so `safety` must be installed in your environment.
 
 ---
@@ -429,9 +415,9 @@ repos:
 
 | Check | Last Run | Result |
 |-------|----------|--------|
-| Ruff Lint | October 2026 | ❌ 367 findings (pre-existing debt) |
-| Black Format Check | October 2026 | ❌ 21 files would be reformatted |
-| MyPy Type Check | October 2026 | ❌ 58 errors (non-blocking in CI) |
+| Ruff Lint | October 2026 | ✅ Pass |
+| Black Format Check | October 2026 | ✅ Pass |
+| MyPy Type Check | October 2026 | ✅ Pass |
 | Bandit Security | October 2026 | ✅ Pass (no issues; false positives suppressed with `# nosec`) |
 | Safety CVE Scan | Not recorded | Report-only in `make security-check` |
 
