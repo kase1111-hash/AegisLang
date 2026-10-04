@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-
 POLICY = """# Test Policy
 
 ## Requirements

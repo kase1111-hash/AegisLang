@@ -1,0 +1,38 @@
+# Source: Staff must file Suspicious Activity Reports for transactions that are suspicious...
+# Clause ID: FINCEN_CDD_RULE_09FC62_FINCEN_CDD_RULE_S008_C000_CL003
+# Generated: 2026-10-04T20:17:09.728118+00:00
+# Confidence: 0.9
+
+control:
+  id: FINCEN_CDD_RULE_09FC62_FINCEN_CDD_RULE_S008_C000_CL003
+  type: obligation
+  rule: "file suspicious activity"
+
+  actor:
+    entity: "Staff"
+
+    mapped_to: "audit_log.actor"
+
+
+  action:
+    operation: "file"
+
+
+
+  object:
+    entity: "suspicious activity"
+
+    mapped_to: "transactions.suspicious_flag"
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FINCEN_CDD_RULE_09FC62"
+    confidence: 0.9
+    generated_by: "aegislang-compiler-v0.1.0"

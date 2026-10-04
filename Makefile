@@ -6,7 +6,7 @@
 .PHONY: help install dev-install test lint format type-check security-check \
         security-scan vuln-scan pre-commit-install pre-commit-run check-all \
         build run clean docker-build docker-up docker-down docker-logs \
-        db-init db-migrate docs
+        docs
 
 # Default target
 .DEFAULT_GOAL := help
@@ -205,25 +205,6 @@ docker-ps: ## Show running containers
 
 docker-shell: ## Open shell in API container
 	$(DOCKER_COMPOSE) exec aegislang /bin/bash
-
-# =============================================================================
-# Database
-# =============================================================================
-
-db-init: ## Initialize the database
-	@echo "$(BLUE)Initializing database...$(NC)"
-	$(DOCKER_COMPOSE) exec postgres psql -U aegislang -d aegislang -f /docker-entrypoint-initdb.d/init.sql
-	@echo "$(GREEN)Database initialized!$(NC)"
-
-db-shell: ## Open database shell
-	$(DOCKER_COMPOSE) exec postgres psql -U aegislang -d aegislang
-
-db-reset: ## Reset database (destructive!)
-	@echo "$(RED)Resetting database...$(NC)"
-	$(DOCKER_COMPOSE) exec postgres dropdb -U aegislang aegislang || true
-	$(DOCKER_COMPOSE) exec postgres createdb -U aegislang aegislang
-	$(DOCKER_COMPOSE) exec postgres psql -U aegislang -d aegislang -f /docker-entrypoint-initdb.d/init.sql
-	@echo "$(GREEN)Database reset complete!$(NC)"
 
 # =============================================================================
 # Documentation

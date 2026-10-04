@@ -37,7 +37,7 @@ class _SqliteDict:
     def __getitem__(self, key: str) -> dict[str, Any]:
         with self._lock:
             row = self._conn.execute(
-                f"SELECT value FROM {self._table} WHERE key = ?", (key,)  # noqa: S608
+                f"SELECT value FROM {self._table} WHERE key = ?", (key,)  # noqa: S608  # nosec B608
             ).fetchone()
         if row is None:
             raise KeyError(key)
@@ -47,7 +47,7 @@ class _SqliteDict:
         blob = json.dumps(value, default=str)
         with self._lock:
             self._conn.execute(
-                f"INSERT OR REPLACE INTO {self._table} (key, value) VALUES (?, ?)",  # noqa: S608
+                f"INSERT OR REPLACE INTO {self._table} (key, value) VALUES (?, ?)",  # noqa: S608  # nosec B608
                 (key, blob),
             )
             self._conn.commit()
@@ -55,7 +55,7 @@ class _SqliteDict:
     def __delitem__(self, key: str) -> None:
         with self._lock:
             cursor = self._conn.execute(
-                f"DELETE FROM {self._table} WHERE key = ?", (key,)  # noqa: S608
+                f"DELETE FROM {self._table} WHERE key = ?", (key,)  # noqa: S608  # nosec B608
             )
             self._conn.commit()
         if cursor.rowcount == 0:
@@ -64,14 +64,14 @@ class _SqliteDict:
     def __contains__(self, key: object) -> bool:
         with self._lock:
             row = self._conn.execute(
-                f"SELECT 1 FROM {self._table} WHERE key = ?", (str(key),)  # noqa: S608
+                f"SELECT 1 FROM {self._table} WHERE key = ?", (str(key),)  # noqa: S608  # nosec B608
             ).fetchone()
         return row is not None
 
     def __len__(self) -> int:
         with self._lock:
             row = self._conn.execute(
-                f"SELECT COUNT(*) FROM {self._table}"  # noqa: S608
+                f"SELECT COUNT(*) FROM {self._table}"  # noqa: S608  # nosec B608
             ).fetchone()
         return row[0]
 
@@ -94,7 +94,7 @@ class _SqliteDict:
     def items(self) -> Iterator[tuple[str, dict[str, Any]]]:
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT key, value FROM {self._table}"  # noqa: S608
+                f"SELECT key, value FROM {self._table}"  # noqa: S608  # nosec B608
             ).fetchall()
         for key, blob in rows:
             yield key, json.loads(blob)
@@ -102,7 +102,7 @@ class _SqliteDict:
     def keys(self) -> Iterator[str]:
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT key FROM {self._table}"  # noqa: S608
+                f"SELECT key FROM {self._table}"  # noqa: S608  # nosec B608
             ).fetchall()
         for (key,) in rows:
             yield key
@@ -110,7 +110,7 @@ class _SqliteDict:
     def values(self) -> Iterator[dict[str, Any]]:
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT value FROM {self._table}"  # noqa: S608
+                f"SELECT value FROM {self._table}"  # noqa: S608  # nosec B608
             ).fetchall()
         for (blob,) in rows:
             yield json.loads(blob)
@@ -134,7 +134,7 @@ class _SqliteListDict:
             raise KeyError(key)
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT value FROM {self._table} WHERE key = ? ORDER BY rowid",  # noqa: S608
+                f"SELECT value FROM {self._table} WHERE key = ? ORDER BY rowid",  # noqa: S608  # nosec B608
                 (key,),
             ).fetchall()
         return [json.loads(r[0]) for r in rows]
@@ -142,16 +142,16 @@ class _SqliteListDict:
     def __setitem__(self, key: str, values: list[dict[str, Any]]) -> None:
         with self._lock:
             self._conn.execute(
-                f"DELETE FROM {self._table} WHERE key = ?", (key,)  # noqa: S608
+                f"DELETE FROM {self._table} WHERE key = ?", (key,)  # noqa: S608  # nosec B608
             )
             self._conn.execute(
-                f"INSERT OR IGNORE INTO {self._keys_table} (key) VALUES (?)",  # noqa: S608
+                f"INSERT OR IGNORE INTO {self._keys_table} (key) VALUES (?)",  # noqa: S608  # nosec B608
                 (key,),
             )
             for val in values:
                 blob = json.dumps(val, default=str)
                 self._conn.execute(
-                    f"INSERT INTO {self._table} (key, value) VALUES (?, ?)",  # noqa: S608
+                    f"INSERT INTO {self._table} (key, value) VALUES (?, ?)",  # noqa: S608  # nosec B608
                     (key, blob),
                 )
             self._conn.commit()
@@ -159,14 +159,14 @@ class _SqliteListDict:
     def __contains__(self, key: object) -> bool:
         with self._lock:
             row = self._conn.execute(
-                f"SELECT 1 FROM {self._keys_table} WHERE key = ?", (str(key),)  # noqa: S608
+                f"SELECT 1 FROM {self._keys_table} WHERE key = ?", (str(key),)  # noqa: S608  # nosec B608
             ).fetchone()
         return row is not None
 
     def __len__(self) -> int:
         with self._lock:
             row = self._conn.execute(
-                f"SELECT COUNT(*) FROM {self._keys_table}"  # noqa: S608
+                f"SELECT COUNT(*) FROM {self._keys_table}"  # noqa: S608  # nosec B608
             ).fetchone()
         return row[0]
 
@@ -181,7 +181,7 @@ class _SqliteListDict:
             keys = [
                 r[0]
                 for r in self._conn.execute(
-                    f"SELECT key FROM {self._keys_table}"  # noqa: S608
+                    f"SELECT key FROM {self._keys_table}"  # noqa: S608  # nosec B608
                 ).fetchall()
             ]
         for key in keys:
@@ -216,6 +216,7 @@ class SqliteStorage:
         self.jobs = _SqliteDict(self._conn, "jobs", self._lock)
         self.documents = _SqliteDict(self._conn, "documents", self._lock)
         self.schemas = _SqliteDict(self._conn, "schemas", self._lock)
+        self.traces = _SqliteDict(self._conn, "traces", self._lock)
         self.clauses = _SqliteListDict(self._conn, "clauses", self._lock)
         self.artifacts = _SqliteListDict(self._conn, "artifacts", self._lock)
 
@@ -237,6 +238,10 @@ class SqliteStorage:
                     value TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS schemas (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS traces (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL
                 );
@@ -308,6 +313,10 @@ class SqliteStorage:
     def store_artifacts(self, doc_id: str, artifacts: list[dict[str, Any]]) -> None:
         """Persist the artifacts compiled from a document."""
         self.artifacts[doc_id] = artifacts
+
+    def store_trace(self, doc_id: str, trace: dict[str, Any]) -> None:
+        """Persist validation results and the provenance graph for a document."""
+        self.traces[doc_id] = trace
 
     def _cleanup_expired_jobs(self) -> None:
         """Remove jobs that have exceeded their TTL."""

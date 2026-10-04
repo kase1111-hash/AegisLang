@@ -459,7 +459,8 @@ class DOCXParser(BaseDocumentParser):
 
                 # Start new section
                 try:
-                    current_level = int(style_name.replace("Heading ", ""))
+                    # Word supports Heading 1-9; the section model allows 1-6
+                    current_level = min(int(style_name.replace("Heading ", "")), 6)
                 except ValueError:
                     current_level = 1
 
@@ -686,8 +687,8 @@ class AegisIngestor:
         # Compute document hash
         doc_hash = parser.compute_hash(path)
 
-        # Generate document ID
-        doc_id = self._generate_doc_id(path)
+        # Generate document ID (stable for the same file name and content)
+        doc_id = self._generate_doc_id(path, doc_hash)
 
         # Get document type
         doc_type, _ = self.SUPPORTED_FORMATS[file_ext]
@@ -718,15 +719,17 @@ class AegisIngestor:
 
         return document
 
-    def _generate_doc_id(self, file_path: Path) -> str:
-        """Generate unique document ID."""
+    def _generate_doc_id(self, file_path: Path, content_hash: str | None = None) -> str:
+        """Generate a document ID: normalized file name plus a short content hash.
+
+        The same file always gets the same ID; a changed file gets a new one.
+        """
         name = file_path.stem.upper()
         name = re.sub(r"[^A-Z0-9]", "_", name)
         name = re.sub(r"_+", "_", name)
         name = name.strip("_")
 
-        # Add short UUID suffix for uniqueness
-        suffix = uuid.uuid4().hex[:6].upper()
+        suffix = (content_hash or uuid.uuid4().hex)[:6].upper()
         return f"{name}_{suffix}"
 
     def ingest_to_json(self, file_path: str | Path) -> str:
@@ -746,38 +749,6 @@ class AegisIngestor:
         """
         document = self.ingest(file_path)
         return document.model_dump()
-
-
-# -----------------------------------------------------------------------------
-# Event Publishing (Agent-OS Integration)
-# -----------------------------------------------------------------------------
-
-
-async def publish_ingested_event(
-    document: IngestedDocument,
-    redis_url: str | None = None,
-) -> None:
-    """
-    Publish policy.ingested event to Agent-OS event bus.
-
-    Args:
-        document: The ingested document
-        redis_url: Redis connection URL
-    """
-    from aegislang.core.events import publish_event
-
-    success = await publish_event(
-        topic="policy.ingested",
-        data=document.model_dump_json(),
-        redis_url=redis_url,
-    )
-
-    if success:
-        logger.info(
-            "event_published",
-            topic="policy.ingested",
-            doc_id=document.doc_id,
-        )
 
 
 # -----------------------------------------------------------------------------

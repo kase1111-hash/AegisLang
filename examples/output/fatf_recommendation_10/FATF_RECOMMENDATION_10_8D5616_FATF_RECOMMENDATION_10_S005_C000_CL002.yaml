@@ -1,0 +1,36 @@
+# Source: Institutions must identify the beneficial owner and take reasonable measures to ...
+# Clause ID: FATF_RECOMMENDATION_10_8D5616_FATF_RECOMMENDATION_10_S005_C000_CL002
+# Generated: 2026-10-04T20:17:07.651367+00:00
+# Confidence: 0.95
+
+control:
+  id: FATF_RECOMMENDATION_10_8D5616_FATF_RECOMMENDATION_10_S005_C000_CL002
+  type: obligation
+  rule: "identify identity"
+
+  actor:
+    entity: "Institutions"
+
+
+  action:
+    operation: "identify"
+
+
+
+  object:
+    entity: "identity"
+
+    mapped_to: "customers.identity_verified"
+
+
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_8D5616"
+    confidence: 0.95
+    generated_by: "aegislang-compiler-v0.1.0"

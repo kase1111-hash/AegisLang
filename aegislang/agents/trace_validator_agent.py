@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -670,7 +671,11 @@ class TraceValidatorAgent:
         trace_id = f"TRC_{uuid.uuid4().hex[:8].upper()}"
         lineage = Lineage(
             document_id=doc_id,
-            section_id=self._extract_section_id(clause_id),
+            section_id=self._extract_section_id(
+                clause_id,
+                chunk_id=parsed_clause.get("source_chunk_id") if parsed_clause else None,
+                doc_id=doc_id,
+            ),
             chunk_id=parsed_clause.get("source_chunk_id") if parsed_clause else None,
             clause_id=clause_id,
             mapping_id=f"map_{clause_id}" if mapped_clause else None,
@@ -699,14 +704,27 @@ class TraceValidatorAgent:
 
         return result
 
-    def _extract_section_id(self, clause_id: str) -> str | None:
-        """Extract section ID from clause ID."""
-        # Clause IDs typically follow pattern: DOC_S001_C001_CL001
-        parts = clause_id.split("_")
-        for i, part in enumerate(parts):
-            if part.startswith("S") and part[1:].isdigit():
-                return "_".join(parts[:i + 1])
-        return None
+    def _extract_section_id(
+        self,
+        clause_id: str,
+        chunk_id: str | None = None,
+        doc_id: str | None = None,
+    ) -> str | None:
+        """Extract the source section ID for a clause.
+
+        Chunk IDs follow ``{SECTION_ID}_C000`` and clause IDs follow
+        ``{DOC_ID}_{CHUNK_ID}_CL001``, where section IDs look like ``NAME_S001``.
+        """
+        if chunk_id:
+            match = re.match(r"^(.*_S\d+)_C\d+$", chunk_id)
+            if match:
+                return match.group(1)
+
+        remainder = clause_id
+        if doc_id and clause_id.startswith(f"{doc_id}_"):
+            remainder = clause_id[len(doc_id) + 1:]
+        match = re.match(r"^(.*?_S\d+)_C\d+", remainder)
+        return match.group(1) if match else None
 
     def validate_compiled_collection(
         self,
@@ -1037,33 +1055,6 @@ class TraceValidatorAgent:
 
         lines.append("}")
         return "\n".join(lines)
-
-
-# -----------------------------------------------------------------------------
-# Event Publishing (Agent-OS Integration)
-# -----------------------------------------------------------------------------
-
-
-async def publish_validated_event(
-    collection: ValidationResultCollection,
-    redis_url: str | None = None,
-) -> None:
-    """Publish policy.validated event to Agent-OS event bus."""
-    from aegislang.core.events import publish_event
-
-    success = await publish_event(
-        topic="policy.validated",
-        data=collection.model_dump_json(),
-        redis_url=redis_url,
-    )
-
-    if success:
-        logger.info(
-            "event_published",
-            topic="policy.validated",
-            doc_id=collection.doc_id,
-            result_count=len(collection.results),
-        )
 
 
 # -----------------------------------------------------------------------------

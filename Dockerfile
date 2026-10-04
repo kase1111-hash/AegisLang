@@ -33,10 +33,9 @@ FROM python:3.11-slim as production
 WORKDIR /app
 
 # Install runtime dependencies
+# curl is needed by the HEALTHCHECK below
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libmagic1 \
-    poppler-utils \
-    tesseract-ocr \
+    curl \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --shell /bin/bash aegislang
 
@@ -50,7 +49,7 @@ COPY --chown=aegislang:aegislang templates/ ./templates/
 COPY --chown=aegislang:aegislang config.yaml ./
 
 # Create directories
-RUN mkdir -p /app/artifacts /app/logs /app/uploads && \
+RUN mkdir -p /app/artifacts /app/data /app/logs /app/uploads && \
     chown -R aegislang:aegislang /app
 
 # Switch to non-root user

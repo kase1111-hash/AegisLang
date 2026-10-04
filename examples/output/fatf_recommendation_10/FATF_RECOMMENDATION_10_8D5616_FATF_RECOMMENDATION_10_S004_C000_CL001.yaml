@@ -1,0 +1,38 @@
+# Source: Financial institutions should be required to undertake CDD measures when establi...
+# Clause ID: FATF_RECOMMENDATION_10_8D5616_FATF_RECOMMENDATION_10_S004_C000_CL001
+# Generated: 2026-10-04T20:17:07.490855+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_8D5616_FATF_RECOMMENDATION_10_S004_C000_CL001
+  type: obligation
+  rule: "be CDD measures"
+
+  actor:
+    entity: "Financial institutions"
+
+
+  action:
+    operation: "be"
+
+
+
+  object:
+    entity: "CDD measures"
+
+
+
+
+  trigger:
+    event: "establishing business relationships"
+
+
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_8D5616"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v0.1.0"

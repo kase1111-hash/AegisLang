@@ -237,10 +237,20 @@ class TestFATFRec10Regression:
             f"Expected at least 3 clause types, got: {types}"
         )
 
-    def test_conditional_clause_present(self, pipeline_result):
+    def test_conditions_extracted(self, pipeline_result):
+        # FATF R.10 states triggers inline ("must perform CDD when ..."); these
+        # are classified by their modal verb and carry the trigger as a condition.
         _, parsed, _ = pipeline_result
-        types = [c.type.value for c in parsed.clauses]
-        assert "conditional" in types, "Expected at least one conditional clause"
+        with_condition = [c for c in parsed.clauses if c.condition]
+        assert len(with_condition) >= 3, (
+            f"Expected at least 3 clauses with conditions, got {len(with_condition)}"
+        )
+
+    def test_should_not_is_prohibition(self, pipeline_result):
+        _, parsed, _ = pipeline_result
+        for clause in parsed.clauses:
+            if "should not" in clause.source_text.lower():
+                assert clause.type.value == "prohibition", clause.source_text
 
     def test_actors_extracted(self, pipeline_result):
         _, parsed, _ = pipeline_result

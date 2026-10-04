@@ -356,23 +356,31 @@ class MockLLMClient(BaseLLMClient):
     """Mock LLM client for testing without API calls."""
 
     def __init__(self):
-        # Ordered from most specific to least specific for proper matching
+        # Modal indicators from the SPEC clause type taxonomy, ordered from
+        # most specific to least specific. Matched on word boundaries.
         self._clause_patterns = [
-            ("must not", ClauseType.PROHIBITION),
-            ("shall not", ClauseType.PROHIBITION),
-            ("prohibited", ClauseType.PROHIBITION),
-            ("defined as", ClauseType.DEFINITION),
-            ("means", ClauseType.DEFINITION),
-            ("except", ClauseType.EXCEPTION),
-            ("unless", ClauseType.EXCEPTION),
-            ("may", ClauseType.PERMISSION),
-            ("permitted", ClauseType.PERMISSION),
-            ("must", ClauseType.OBLIGATION),
-            ("shall", ClauseType.OBLIGATION),
-            ("required", ClauseType.OBLIGATION),
-            ("if", ClauseType.CONDITIONAL),
-            ("when", ClauseType.CONDITIONAL),
+            (r"\b(?:must|shall|may|should) not\b", ClauseType.PROHIBITION),
+            (r"\b(?:is|are) prohibited from\b", ClauseType.PROHIBITION),
+            (r"\bprohibited\b", ClauseType.PROHIBITION),
+            (r"\b(?:is|are) defined as\b", ClauseType.DEFINITION),
+            (r"\bdefined as\b", ClauseType.DEFINITION),
+            (r"\brefers? to\b", ClauseType.DEFINITION),
+            (r"\bmeans\b(?!\s+of\b)", ClauseType.DEFINITION),  # not "by means of"
+            (r"\bnotwithstanding\b", ClauseType.EXCEPTION),
+            (r"\bexcept\b", ClauseType.EXCEPTION),
+            (r"\bexempt(?:ed)? from\b", ClauseType.EXCEPTION),
+            (r"\b(?:is|are) permitted to\b", ClauseType.PERMISSION),
+            (r"\bmay\b", ClauseType.PERMISSION),
+            (r"\bpermitted\b", ClauseType.PERMISSION),
+            (r"\bcan\b", ClauseType.PERMISSION),
+            (r"\b(?:is|are) required to\b", ClauseType.OBLIGATION),
+            (r"\bmust\b", ClauseType.OBLIGATION),
+            (r"\bshall\b", ClauseType.OBLIGATION),
+            (r"\brequired\b", ClauseType.OBLIGATION),
+            (r"\b(?:if|when|where|unless)\b", ClauseType.CONDITIONAL),
         ]
+
+    _CONDITIONAL_OPENERS = ("if ", "when ", "where ", "unless ")
 
     def parse_clause(self, clause_text: str) -> dict[str, Any]:
         """Parse clause using pattern matching (for testing)."""
@@ -384,18 +392,18 @@ class MockLLMClient(BaseLLMClient):
         pattern_specificity = 0.0
 
         # Check for sentence-initial conditionals first
-        if clause_lower.startswith("if ") or clause_lower.startswith("when "):
+        if clause_lower.startswith(self._CONDITIONAL_OPENERS):
             clause_type = ClauseType.CONDITIONAL
             pattern_found = True
             pattern_specificity = 0.9  # High confidence for sentence-initial
         else:
             # Check patterns in priority order (earlier = more specific)
             for idx, (pattern, ctype) in enumerate(self._clause_patterns):
-                if pattern in clause_lower:
+                if re.search(pattern, clause_lower):
                     clause_type = ctype
                     pattern_found = True
                     # More specific patterns (lower index) get higher confidence
-                    pattern_specificity = 0.9 - (idx * 0.03)
+                    pattern_specificity = max(0.3, 0.9 - (idx * 0.03))
                     break
 
         # Extract basic components using simple heuristics
@@ -581,14 +589,20 @@ class MockLLMClient(BaseLLMClient):
     def _extract_condition(self, text: str) -> dict[str, str] | None:
         """Extract condition from text."""
         patterns = [
-            r"(?:if|when|where)\s+([\w\s]+?)(?:,|then|$)",
-            r"(?:before|after|upon)\s+([\w\s]+?)(?:,|\.|$)",
+            r"\b(?:if|when|where|unless)\s+([\w\s'-]+?)(?:[,.;]|\bthen\b|$)",
+            r"\b(?:before|after|upon)\s+([\w\s]+?)(?:,|\.|$)",
         ]
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 return {"trigger": match.group(1).strip(), "temporal": None}
         return None
+
+    _NUMBER = (
+        r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+        r"fifteen|twenty|thirty|forty-five|sixty|ninety)"
+    )
+    _UNIT = r"(?:business\s+|calendar\s+)?(?:hours?|days?|weeks?|months?|years?)"
 
     def _extract_temporal(self, text: str) -> dict[str, str | None] | None:
         """Extract temporal scope from text."""
@@ -597,17 +611,26 @@ class MockLLMClient(BaseLLMClient):
             "frequency": None,
             "duration": None,
         }
+        amount = rf"{self._NUMBER}(?:\s*\(\d+\))?\s+{self._UNIT}"
 
-        # Deadline patterns
+        # Deadline patterns: "within 30 days", "no later than 5 business days",
+        # "by the end of the month", "before the close of business"
         deadline_match = re.search(
-            r"(?:within|by|before)\s+([\w\s]+?)(?:\.|,|$)", text, re.IGNORECASE
+            rf"\b(?:within|no later than)\s+({amount}|a reasonable (?:time|period))",
+            text,
+            re.IGNORECASE,
+        ) or re.search(
+            r"\b(?:by|before)\s+(the\s+(?:end|close)\s+of\s+[\w\s]+?)(?=[.,;]|$)",
+            text,
+            re.IGNORECASE,
         )
         if deadline_match:
             result["deadline"] = deadline_match.group(1).strip()
 
-        # Duration patterns
+        # Duration patterns: "for at least five years", "for a period of 5 years"
         duration_match = re.search(
-            r"(?:for|at least|up to)\s+(\d+\s*(?:days?|months?|years?))",
+            rf"\b(?:for|at least|up to|a period of|a minimum of)\s+"
+            rf"(?:at least\s+|a period of\s+|a minimum of\s+)?({amount})",
             text,
             re.IGNORECASE,
         )
@@ -616,7 +639,10 @@ class MockLLMClient(BaseLLMClient):
 
         # Frequency patterns
         frequency_match = re.search(
-            r"(?:annually|monthly|weekly|daily|quarterly)", text, re.IGNORECASE
+            r"\b(?:annually|semi-annually|monthly|weekly|daily|quarterly|"
+            r"periodically|on an? (?:ongoing|periodic|regular|annual) basis)\b",
+            text,
+            re.IGNORECASE,
         )
         if frequency_match:
             result["frequency"] = frequency_match.group(0)
@@ -850,8 +876,9 @@ class PolicyParserAgent:
             # Check if this is a regulatory clause (contains modal verbs or key terms)
             is_regulatory = bool(
                 re.search(
-                    r"\b(must|shall|may|should|required|prohibited|permitted|"
-                    r"means|defined|except|unless|if|when|where)\b",
+                    r"\b(must|shall|may|should|can|required|prohibited|"
+                    r"permitted|means|defined|refers?|except|exempt|"
+                    r"notwithstanding|unless|if|when|where)\b",
                     sentence,
                     re.IGNORECASE,
                 )
@@ -877,39 +904,6 @@ class PolicyParserAgent:
             clauses.append(" ".join(current_clause))
 
         return clauses
-
-
-# -----------------------------------------------------------------------------
-# Event Publishing (Agent-OS Integration)
-# -----------------------------------------------------------------------------
-
-
-async def publish_parsed_event(
-    collection: ParsedClauseCollection,
-    redis_url: str | None = None,
-) -> None:
-    """
-    Publish policy.parsed event to Agent-OS event bus.
-
-    Args:
-        collection: The parsed clause collection
-        redis_url: Redis connection URL
-    """
-    from aegislang.core.events import publish_event
-
-    success = await publish_event(
-        topic="policy.parsed",
-        data=collection.model_dump_json(),
-        redis_url=redis_url,
-    )
-
-    if success:
-        logger.info(
-            "event_published",
-            topic="policy.parsed",
-            doc_id=collection.doc_id,
-            clause_count=len(collection.clauses),
-        )
 
 
 # -----------------------------------------------------------------------------

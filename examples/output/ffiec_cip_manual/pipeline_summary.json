@@ -1,6 +1,6 @@
 {
   "document": "ffiec_cip_manual",
-  "source_path": "/home/user/AegisLang/examples/regulations/ffiec_cip_manual.md",
+  "source_path": "examples/regulations/ffiec_cip_manual.md",
   "ingestion": {
     "sections": 9,
     "total_chunks": 6
@@ -29,8 +29,8 @@
   },
   "validation": {
     "total": 51,
-    "passed": 28,
-    "failed": 17,
-    "needs_review": 6
+    "passed": 36,
+    "failed": 0,
+    "needs_review": 15
   }
 }

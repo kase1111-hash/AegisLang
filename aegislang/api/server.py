@@ -10,6 +10,7 @@ Base URL: /api/v1
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import hmac
 import json
@@ -34,7 +35,7 @@ from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 
 from aegislang import __version__
-from aegislang.agents.schema_mapping_agent import SchemaType, SchemaTable
+from aegislang.agents.schema_mapping_agent import SchemaTable, SchemaType  # noqa: TC001
 from aegislang.core.logging import set_request_context, clear_request_context
 
 logger = structlog.get_logger(__name__)
@@ -53,7 +54,7 @@ _dev_api_key_lock = threading.Lock()
 
 def _get_dev_api_key() -> str:
     """Return the per-process development key, generating and logging it once."""
-    global _dev_api_key
+    global _dev_api_key  # noqa: PLW0603
     with _dev_api_key_lock:
         if _dev_api_key is None:
             _dev_api_key = secrets.token_urlsafe(32)
@@ -271,6 +272,9 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     timestamp: str
+    llm_provider: str = Field(
+        ..., description="Clause parsing provider: anthropic, openai, or mock"
+    )
 
 
 class SchemaRegistryRequest(BaseModel):
@@ -306,6 +310,7 @@ class Storage:
         self.clauses: dict[str, list[dict[str, Any]]] = {}
         self.artifacts: dict[str, list[dict[str, Any]]] = {}
         self.schemas: dict[str, dict[str, Any]] = {}
+        self.traces: dict[str, dict[str, Any]] = {}
 
         # Job TTL configuration (can be overridden via env var)
         self.job_ttl = job_ttl_seconds or int(
@@ -428,6 +433,11 @@ class Storage:
         with self._lock:
             self.artifacts[doc_id] = artifacts
 
+    def store_trace(self, doc_id: str, trace: dict[str, Any]) -> None:
+        """Thread-safe storage of validation results and provenance graph."""
+        with self._lock:
+            self.traces[doc_id] = trace
+
 
 def _create_storage() -> Storage:
     """Create storage backend based on AEGISLANG_STORAGE_BACKEND env var."""
@@ -489,12 +499,21 @@ def secure_delete_file(file_path: Path) -> None:
             pass
 
 
+def _llm_provider() -> str:
+    """Select the clause-parsing provider from the configured API keys.
+
+    Anthropic is preferred when both keys are set; mock is used when neither is.
+    """
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai"
+    return "mock"
+
+
 def _should_use_mock() -> bool:
     """Use mock providers when no LLM API keys are available."""
-    return not (
-        os.environ.get("ANTHROPIC_API_KEY")
-        or os.environ.get("OPENAI_API_KEY")
-    )
+    return _llm_provider() == "mock"
 
 
 def build_schema_registry(storage: Storage) -> Any:
@@ -529,6 +548,7 @@ def process_ingestion(
     metadata: dict[str, Any],
     storage: Storage,
     doc_id: str | None = None,
+    source_name: str | None = None,
 ) -> None:
     """Background task for document ingestion."""
     try:
@@ -544,7 +564,9 @@ def process_ingestion(
         storage_key = doc_id or result.doc_id
 
         # Store document
-        doc_data = result.model_dump()
+        doc_data = result.model_dump(mode="json")
+        # Report the uploaded file name, not the server-side temp path
+        doc_data["metadata"]["source_file"] = source_name or file_path.name
         doc_data["metadata"].update(metadata)
         doc_data["doc_id"] = storage_key
         storage.store_document(storage_key, doc_data)
@@ -562,8 +584,11 @@ def process_ingestion(
         storage.update_job(job_id, JobStatus.FAILED, error=str(e))
 
     finally:
-        # Securely cleanup temp file
+        # Securely cleanup temp file and its private directory
         secure_delete_file(file_path)
+        if file_path.parent.parent == Path(tempfile.gettempdir()) / "aegislang":
+            with contextlib.suppress(OSError):
+                file_path.parent.rmdir()
 
 
 def process_compilation(
@@ -587,9 +612,13 @@ def process_compilation(
         # Run parser
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
 
-        parser = PolicyParserAgent(use_mock=_should_use_mock())
+        provider = _llm_provider()
+        parser = PolicyParserAgent(
+            llm_provider="anthropic" if provider == "mock" else provider,
+            use_mock=provider == "mock",
+        )
         parsed = parser.parse_ingested_document(doc_data)
-        parsed_data = parsed.model_dump()
+        parsed_data = parsed.model_dump(mode="json")
 
         # Store clauses
         storage.store_clauses(doc_id, parsed_data.get("clauses", []))
@@ -602,7 +631,7 @@ def process_compilation(
             use_mock=_should_use_mock(),
         )
         mapped = mapper.map_parsed_collection(parsed_data, target_schema)
-        mapped_data = mapped.model_dump()
+        mapped_data = mapped.model_dump(mode="json")
 
         # Run compiler
         from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
@@ -610,7 +639,7 @@ def process_compilation(
         compiler = CompilerAgent()
         formats = [ArtifactFormat(f) for f in output_formats]
         compiled = compiler.compile_mapped_collection(mapped_data, formats)
-        compiled_data = compiled.model_dump()
+        compiled_data = compiled.model_dump(mode="json")
 
         # Store artifacts
         storage.store_artifacts(doc_id, compiled_data.get("artifacts", []))
@@ -626,6 +655,19 @@ def process_compilation(
         )
         validated = validator.validate_compiled_collection(
             compiled_data, mapped_data, parsed_data
+        )
+        provenance = validator.build_provenance_graph(validated)
+
+        # Store validation results and provenance graph (audit trail)
+        storage.store_trace(
+            doc_id,
+            {
+                "doc_id": doc_id,
+                "summary": validated.summary,
+                "validation_timestamp": validated.validation_timestamp,
+                "results": [r.model_dump(mode="json") for r in validated.results],
+                "provenance_graph": provenance.model_dump(mode="json"),
+            },
         )
 
         storage.update_job(
@@ -657,6 +699,7 @@ async def health_check() -> HealthResponse:
         status="healthy",
         version=__version__,
         timestamp=datetime.now(timezone.utc).isoformat(),
+        llm_provider=_llm_provider(),
     )
 
 
@@ -729,27 +772,29 @@ async def ingest_document(
     # Parse metadata
     try:
         meta_dict = json.loads(metadata)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="metadata must be valid JSON")
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail="metadata must be valid JSON") from e
     # Validate metadata is a JSON object (prevent injection)
     if not isinstance(meta_dict, dict):
         raise HTTPException(status_code=400, detail="metadata must be a JSON object")
 
-    # Save file to temp location with secure naming
-    temp_dir = Path(tempfile.gettempdir()) / "aegislang"
-    temp_dir.mkdir(exist_ok=True, mode=0o700)  # Restrictive permissions
+    # Sanitize document name from filename
+    safe_stem = re.sub(r"[^A-Za-z0-9_-]", "_", Path(file.filename or "document").stem)
+    safe_stem = safe_stem[:50].upper() or "DOCUMENT"  # Limit length
+    doc_id = f"{safe_stem}_{uuid.uuid4().hex[:6].upper()}"
 
-    # Use only UUID for temp filename - no user input
-    temp_path = temp_dir / f"{uuid.uuid4().hex}{file_ext}"
+    # Save file to a private, uniquely named temp directory. The file itself is
+    # named after the sanitized stem so section/chunk/clause IDs reflect the
+    # uploaded document name rather than a random temp name.
+    temp_root = Path(tempfile.gettempdir()) / "aegislang"
+    temp_root.mkdir(exist_ok=True, mode=0o700)  # Restrictive permissions
+    temp_dir = temp_root / uuid.uuid4().hex
+    temp_dir.mkdir(mode=0o700)
+    temp_path = temp_dir / f"{safe_stem}{file_ext}"
     temp_path.write_bytes(content)
 
     # Create job
     job_id = storage.create_job("ing")
-
-    # Sanitize document ID from filename
-    safe_stem = re.sub(r"[^A-Za-z0-9_-]", "_", Path(file.filename or "document").stem)
-    safe_stem = safe_stem[:50].upper()  # Limit length
-    doc_id = f"{safe_stem}_{uuid.uuid4().hex[:6].upper()}"
 
     # Schedule background task
     background_tasks.add_task(
@@ -759,6 +804,7 @@ async def ingest_document(
         meta_dict,
         storage,
         doc_id,
+        Path(file.filename or "document").name,
     )
 
     return IngestResponse(
@@ -840,6 +886,22 @@ async def get_rule(
             }
 
     raise HTTPException(status_code=404, detail="Rule not found")
+
+
+@app.get("/api/v1/trace/{doc_id}", tags=["Traceability"])
+async def get_trace(
+    doc_id: str,
+    storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
+) -> dict[str, Any]:
+    """Retrieve validation results and the provenance graph for a compiled document.
+
+    Requires X-API-Key header.
+    """
+    if doc_id not in storage.traces:
+        raise HTTPException(status_code=404, detail="Trace not found for document")
+
+    return storage.traces[doc_id]
 
 
 @app.post("/api/v1/compile", tags=["Compilation"])
@@ -992,6 +1054,24 @@ register_error_handlers(app)
 def main() -> None:
     """Run the API server."""
     import uvicorn
+
+    from aegislang.core.errors import is_production
+    from aegislang.core.logging import setup_logging
+
+    # AEGISLANG_LOG_LEVEL takes precedence over LOG_LEVEL; SENTRY_DSN and
+    # AEGISLANG_LOG_FILE are read by setup_logging itself.
+    setup_logging(
+        level=os.environ.get("LOG_LEVEL", "INFO"),
+        json_output=is_production(),
+    )
+
+    # Generate the development key before workers start so that every worker
+    # process accepts the same key that is logged here.
+    if (
+        not os.environ.get("AEGISLANG_API_KEYS")
+        and os.environ.get("AEGISLANG_DISABLE_AUTH", "").lower() != "true"
+    ):
+        os.environ["AEGISLANG_API_KEYS"] = _get_dev_api_key()
 
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "8080"))

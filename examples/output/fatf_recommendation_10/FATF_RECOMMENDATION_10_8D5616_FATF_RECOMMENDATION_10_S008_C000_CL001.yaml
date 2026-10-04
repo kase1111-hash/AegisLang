@@ -1,0 +1,31 @@
+# Source: Financial institutions should not open the account or commence the business rela...
+# Clause ID: FATF_RECOMMENDATION_10_8D5616_FATF_RECOMMENDATION_10_S008_C000_CL001
+# Generated: 2026-10-04T20:17:07.862748+00:00
+# Confidence: 0.5
+
+control:
+  id: FATF_RECOMMENDATION_10_8D5616_FATF_RECOMMENDATION_10_S008_C000_CL001
+  type: prohibition
+  rule: "MUST NOT open"
+
+  actor:
+    entity: "Financial institutions"
+
+
+  prohibited_action:
+    operation: "open"
+    enforcement: "block"
+
+
+
+
+  exception:
+    condition: "they are unable to satisfactorily complete CDD measures"
+
+
+  severity: critical
+
+  metadata:
+    source_document: "FATF_RECOMMENDATION_10_8D5616"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v0.1.0"

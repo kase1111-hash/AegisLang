@@ -1,6 +1,6 @@
 {
   "document": "fincen_cdd_rule",
-  "source_path": "/home/user/AegisLang/examples/regulations/fincen_cdd_rule.md",
+  "source_path": "examples/regulations/fincen_cdd_rule.md",
   "ingestion": {
     "sections": 9,
     "total_chunks": 5
@@ -28,8 +28,8 @@
   },
   "validation": {
     "total": 42,
-    "passed": 28,
-    "failed": 14,
+    "passed": 42,
+    "failed": 0,
     "needs_review": 0
   }
 }

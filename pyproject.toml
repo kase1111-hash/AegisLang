@@ -54,6 +54,7 @@ exclude = [
     "dist",
     "*.egg-info",
     "node_modules",
+    "examples/output",
 ]
 
 [tool.ruff.lint]
@@ -249,5 +250,6 @@ exclude = '''
   | __pycache__
   | build
   | dist
+  | examples/output
 )/
 '''
