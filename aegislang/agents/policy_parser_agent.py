@@ -238,7 +238,7 @@ class AnthropicClient(BaseLLMClient):
         self,
         api_key: str | None = None,
         model: str = "claude-sonnet-4-20250514",
-        temperature: float = 0.1,
+        temperature: float | None = 0.1,
         max_tokens: int = 4096,
     ):
         try:
@@ -261,10 +261,14 @@ class AnthropicClient(BaseLLMClient):
 
     def parse_clause(self, clause_text: str) -> dict[str, Any]:
         """Parse a clause using Claude."""
+        # anthropic SDK 1.x removed the `temperature` keyword from messages.create;
+        # send it in the request body instead. Models from Claude Opus 4.7 onward
+        # reject sampling parameters, so set temperature=None when using them.
+        extra_body = {"temperature": self.temperature} if self.temperature is not None else None
         message = self.client.messages.create(
             model=self.model,
             max_tokens=self.max_tokens,
-            temperature=self.temperature,
+            extra_body=extra_body,
             system=CLAUSE_PARSER_SYSTEM_PROMPT,
             messages=[
                 {
@@ -274,7 +278,9 @@ class AnthropicClient(BaseLLMClient):
             ],
         )
 
-        response_text = message.content[0].text
+        response_text = next(
+            (block.text for block in message.content if block.type == "text"), ""
+        )
         return self._extract_json(response_text)
 
     def _extract_json(self, text: str) -> dict[str, Any]:

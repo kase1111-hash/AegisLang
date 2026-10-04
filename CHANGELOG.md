@@ -24,6 +24,7 @@ Fixes that make the code behave as `SPEC.md` and the documentation describe.
 - All errors, including unknown routes (404/405) and request validation errors (422), use the documented error format (`error`, `status_code`, `request_id`, optional `error_code` and `details`); 429 responses include a `Retry-After` header
 - Input is validated up front: `output_formats` must be a subset of `yaml`/`sql`/`python`, schema bodies are validated, and ingest `metadata` must be a JSON object
 - The OpenAI parser is selected when only `OPENAI_API_KEY` is set
+- The Anthropic parser works with the `anthropic` 1.x SDK, which removed the `temperature` keyword: temperature is now sent in the request body (set `temperature=None` for models that reject sampling parameters); previously every clause failed to parse and compile jobs completed with 0 clauses
 - `/health` reports the package version (0.1.0) instead of a hard-coded 1.0.0
 - `python -m aegislang.api.server` now calls `setup_logging()`, so `LOG_LEVEL`/`AEGISLANG_LOG_LEVEL`, `AEGISLANG_LOG_FILE` and `SENTRY_DSN` take effect
 - The uploaded file name (not the temporary path) drives section IDs and `source_file`

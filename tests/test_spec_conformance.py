@@ -324,3 +324,62 @@ def test_trace_endpoint_returns_lineage(client, tmp_path):
 
     doc = client.get(f"/api/v1/documents/{doc_id}").json()
     assert doc["metadata"]["source_file"] == "policy.md"
+
+
+# =============================================================================
+# LLM providers: calls must match the installed SDK signatures
+# =============================================================================
+
+
+class _FakeTextBlock:
+    type = "text"
+    text = '{"type": "obligation", "actor": {"entity": "Banks"}, "confidence": 0.9}'
+
+
+def test_anthropic_client_matches_installed_sdk(monkeypatch):
+    import inspect
+
+    anthropic = pytest.importorskip("anthropic")
+    from aegislang.agents.policy_parser_agent import AnthropicClient
+
+    client = AnthropicClient(api_key="sk-ant-test")
+    captured = {}
+
+    def fake_create(**kwargs):
+        captured.update(kwargs)
+        return type("Message", (), {"content": [_FakeTextBlock()]})()
+
+    monkeypatch.setattr(client.client.messages, "create", fake_create)
+    result = client.parse_clause("Banks must verify customer identity.")
+
+    accepted = inspect.signature(anthropic.resources.messages.Messages.create).parameters
+    assert set(captured) <= set(accepted), set(captured) - set(accepted)
+    assert captured["extra_body"] == {"temperature": 0.1}
+    assert result["type"] == "obligation"
+
+    client.temperature = None
+    client.parse_clause("Banks must verify customer identity.")
+    assert captured["extra_body"] is None
+
+
+def test_openai_client_matches_installed_sdk(monkeypatch):
+    import inspect
+
+    openai = pytest.importorskip("openai")
+    from aegislang.agents.policy_parser_agent import OpenAIClient
+
+    client = OpenAIClient(api_key="sk-test")
+    captured = {}
+
+    def fake_create(**kwargs):
+        captured.update(kwargs)
+        message = type("Msg", (), {"content": _FakeTextBlock.text})()
+        choice = type("Choice", (), {"message": message})()
+        return type("Response", (), {"choices": [choice]})()
+
+    monkeypatch.setattr(client.client.chat.completions, "create", fake_create)
+    result = client.parse_clause("Banks must verify customer identity.")
+
+    accepted = inspect.signature(openai.resources.chat.completions.Completions.create).parameters
+    assert set(captured) <= set(accepted), set(captured) - set(accepted)
+    assert result["type"] == "obligation"

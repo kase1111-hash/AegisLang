@@ -31,7 +31,7 @@ policy_doc → AegisIngestor → PolicyParser → SchemaMapper → Compiler → 
 | Clause-to-artifact traceability (validation results + provenance graph via `GET /api/v1/trace/{doc_id}`) | Cross-reference resolution between clauses (not implemented; `cross_references` is always empty) |
 | REST API with OpenAPI docs, API-key auth, rate limiting | No web UI; no user accounts or roles |
 | SQLite persistence (opt-in via `AEGISLANG_STORAGE_BACKEND=sqlite`) | Default in-memory storage is lost on restart |
-| 250 tests, all passing, including output regression tests on the real AML documents | Terraform/Rego/JSON output is experimental and CLI/library only |
+| 252 tests, all passing, including output regression tests on the real AML documents | Terraform/Rego/JSON output is experimental and CLI/library only |
 
 ## Quick Start
 

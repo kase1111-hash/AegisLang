@@ -110,7 +110,7 @@ class TextChunk(BaseModel):
 ## Testing
 
 ```bash
-pytest tests/                    # Run all tests (250)
+pytest tests/                    # Run all tests (252)
 pytest tests/test_parser.py      # Single test file
 pytest -m "not slow"             # Skip slow tests
 pytest --cov=aegislang           # With coverage

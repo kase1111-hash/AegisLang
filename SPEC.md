@@ -303,7 +303,7 @@ Finished jobs are removed after `AEGISLANG_JOB_TTL_SECONDS` (default 86400). Doc
 
 ### 6.1 Test Suite
 
-250 tests, all passing (`python -m pytest tests/`). Counts are collected test cases, including parametrized cases.
+252 tests, all passing (`python -m pytest tests/`). Counts are collected test cases, including parametrized cases.
 
 | File | Tests | Covers |
 |------|-------|--------|
@@ -315,10 +315,10 @@ Finished jobs are removed after `AEGISLANG_JOB_TTL_SECONDS` (default 86400). Doc
 | `test_mapper.py` | 25 | L3 mock embeddings, registry, mapping |
 | `test_integration.py` | 12 | Multi-stage pipeline flows |
 | `test_system.py` | 20 | End-to-end user journeys through the API |
-| `test_spec_conformance.py` | 37 | Behaviour described in this SPEC (taxonomy, temporal scope, hierarchy, templates, lineage) |
+| `test_spec_conformance.py` | 39 | Behaviour described in this SPEC (taxonomy, temporal scope, hierarchy, templates, lineage, LLM SDK call signatures) |
 | `test_regression.py` | 19 | Guards for previously fixed bugs |
 | `test_pipeline_regression.py` | 13 | Output regression on the three AML documents (clause counts, type distributions, mapping) |
-| **Total** | **250** | **All passing** |
+| **Total** | **252** | **All passing** |
 
 `tests/performance/` contains Locust load tests that are not part of the normal run. The only marker in use is `slow`.
 
