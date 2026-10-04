@@ -27,6 +27,7 @@ REPO_ROOT = Path(__file__).parent.parent
 # PRS-001: clause type taxonomy (SPEC section 3.2)
 # =============================================================================
 
+
 @pytest.mark.parametrize(
     "text, expected",
     [
@@ -70,6 +71,7 @@ def test_keywords_match_whole_words_only(text):
 # PRS-006: temporal scope extraction
 # =============================================================================
 
+
 @pytest.mark.parametrize(
     "text, field, value",
     [
@@ -93,6 +95,7 @@ def test_temporal_scope_ignores_non_temporal_by():
 # =============================================================================
 # ING-002 / ING-007: DOCX hierarchy
 # =============================================================================
+
 
 def test_docx_deep_headings_are_clamped(tmp_path):
     docx = pytest.importorskip("docx")
@@ -123,24 +126,39 @@ def test_document_ids_are_stable(tmp_path):
 # MAP-004: schema replacement
 # =============================================================================
 
+
 def test_replacing_schema_removes_stale_fields():
     mapper = SchemaMappingAgent(use_mock=True)
-    mapper.register_schema(TargetSchema(
-        schema_id="x",
-        schema_type=SchemaType.SQL,
-        version="1.0.0",
-        tables=[SchemaTable(table_name="t", fields=[
-            SchemaField(field_name="old_field", field_type="TEXT"),
-        ])],
-    ))
-    mapper.register_schema(TargetSchema(
-        schema_id="x",
-        schema_type=SchemaType.SQL,
-        version="2.0.0",
-        tables=[SchemaTable(table_name="t", fields=[
-            SchemaField(field_name="new_field", field_type="TEXT"),
-        ])],
-    ))
+    mapper.register_schema(
+        TargetSchema(
+            schema_id="x",
+            schema_type=SchemaType.SQL,
+            version="1.0.0",
+            tables=[
+                SchemaTable(
+                    table_name="t",
+                    fields=[
+                        SchemaField(field_name="old_field", field_type="TEXT"),
+                    ],
+                )
+            ],
+        )
+    )
+    mapper.register_schema(
+        TargetSchema(
+            schema_id="x",
+            schema_type=SchemaType.SQL,
+            version="2.0.0",
+            tables=[
+                SchemaTable(
+                    table_name="t",
+                    fields=[
+                        SchemaField(field_name="new_field", field_type="TEXT"),
+                    ],
+                )
+            ],
+        )
+    )
 
     assert "x:t.old_field" not in mapper._field_embeddings
     assert "x:t.new_field" in mapper._field_embeddings
@@ -149,6 +167,7 @@ def test_replacing_schema_removes_stale_fields():
 # =============================================================================
 # L4 compilation
 # =============================================================================
+
 
 def _compile_policy(tmp_path, formats, compiler=None):
     path = tmp_path / "policy.md"
@@ -160,9 +179,11 @@ def _compile_policy(tmp_path, formats, compiler=None):
     )
     doc = AegisIngestor().ingest(path).model_dump()
     parsed = PolicyParserAgent(use_mock=True).parse_ingested_document(doc).model_dump()
-    mapped = SchemaMappingAgent(
-        registry=create_default_registry(), use_mock=True
-    ).map_parsed_collection(parsed).model_dump()
+    mapped = (
+        SchemaMappingAgent(registry=create_default_registry(), use_mock=True)
+        .map_parsed_collection(parsed)
+        .model_dump()
+    )
     compiled = (compiler or CompilerAgent()).compile_mapped_collection(mapped, formats)
     return parsed, mapped, compiled
 
@@ -187,9 +208,7 @@ def test_sql_comment_only_for_generated_constraints(tmp_path):
 def test_template_directory_overrides_by_clause_type(tmp_path):
     templates = tmp_path / "templates" / "yaml"
     templates.mkdir(parents=True)
-    (templates / "obligation.yaml.j2").write_text(
-        "custom: true\nclause: {{ clause.clause_id }}\n"
-    )
+    (templates / "obligation.yaml.j2").write_text("custom: true\nclause: {{ clause.clause_id }}\n")
     compiler = CompilerAgent(templates_dir=tmp_path / "templates")
     _, _, compiled = _compile_policy(tmp_path, [ArtifactFormat.YAML], compiler)
 
@@ -219,6 +238,7 @@ def test_templates_are_sandboxed():
 # VAL-005: lineage
 # =============================================================================
 
+
 def test_lineage_section_id_matches_source_section(tmp_path):
     parsed, mapped, compiled = _compile_policy(tmp_path, [ArtifactFormat.YAML])
     validated = TraceValidatorAgent().validate_compiled_collection(
@@ -239,9 +259,11 @@ def test_lineage_section_id_matches_source_section(tmp_path):
 # API: provider selection, health, trace endpoint
 # =============================================================================
 
+
 @pytest.fixture
 def client():
     from aegislang.api.server import app
+
     return TestClient(app)
 
 
@@ -271,9 +293,7 @@ def test_openai_key_selects_openai_parser(monkeypatch):
             created["use_mock"] = use_mock
             raise RuntimeError("stop after construction")
 
-    monkeypatch.setattr(
-        "aegislang.agents.policy_parser_agent.PolicyParserAgent", FakeParser
-    )
+    monkeypatch.setattr("aegislang.agents.policy_parser_agent.PolicyParserAgent", FakeParser)
     storage = server.Storage()
     storage.store_document("DOC", {"doc_id": "DOC", "sections": [], "metadata": {}})
     job_id = storage.create_job("cmp")

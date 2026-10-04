@@ -55,17 +55,33 @@ def chain(tmp_path: Path, monkeypatch) -> dict[str, Path]:
 
     _run(monkeypatch, aegis_ingestor, str(files["policy"]), "-o", str(files["ingested"]))
     _run(
-        monkeypatch, policy_parser_agent,
-        str(files["ingested"]), "--provider", "mock", "-o", str(files["parsed"]),
+        monkeypatch,
+        policy_parser_agent,
+        str(files["ingested"]),
+        "--provider",
+        "mock",
+        "-o",
+        str(files["parsed"]),
     )
     _run(
-        monkeypatch, schema_mapping_agent,
-        str(files["parsed"]), "--schema", "kyc_schema", "-o", str(files["mapped"]),
+        monkeypatch,
+        schema_mapping_agent,
+        str(files["parsed"]),
+        "--schema",
+        "kyc_schema",
+        "-o",
+        str(files["mapped"]),
     )
     _run(
-        monkeypatch, compiler_agent,
-        str(files["mapped"]), "--formats", "yaml", "sql", "python",
-        "-o", str(files["artifacts"]),
+        monkeypatch,
+        compiler_agent,
+        str(files["mapped"]),
+        "--formats",
+        "yaml",
+        "sql",
+        "python",
+        "-o",
+        str(files["artifacts"]),
     )
     return files
 
@@ -107,13 +123,20 @@ def test_validator_cli_outputs(chain, monkeypatch, capsys):
     chain["compiled"].write_text(capsys.readouterr().out)
 
     _run(
-        monkeypatch, trace_validator_agent,
-        "--compiled", str(chain["compiled"]),
-        "--mapped", str(chain["mapped"]),
-        "--parsed", str(chain["parsed"]),
-        "-o", str(chain["validated"]),
-        "--graph", str(chain["graph"]),
-        "--graph-dot", str(chain["graph_dot"]),
+        monkeypatch,
+        trace_validator_agent,
+        "--compiled",
+        str(chain["compiled"]),
+        "--mapped",
+        str(chain["mapped"]),
+        "--parsed",
+        str(chain["parsed"]),
+        "-o",
+        str(chain["validated"]),
+        "--graph",
+        str(chain["graph"]),
+        "--graph-dot",
+        str(chain["graph_dot"]),
     )
 
     validated = json.loads(chain["validated"].read_text())
@@ -137,8 +160,13 @@ def test_mapper_cli_custom_registry(chain, tmp_path, monkeypatch, capsys):
     registry_path.write_text(registry.model_dump_json())
 
     _run(
-        monkeypatch, schema_mapping_agent,
-        str(chain["parsed"]), "--registry", str(registry_path), "--threshold", "0.9",
+        monkeypatch,
+        schema_mapping_agent,
+        str(chain["parsed"]),
+        "--registry",
+        str(registry_path),
+        "--threshold",
+        "0.9",
     )
     mapped = json.loads(capsys.readouterr().out)
     assert len(mapped["clauses"]) == 4

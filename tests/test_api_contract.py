@@ -19,6 +19,7 @@ Banks shall report suspicious transactions.
 @pytest.fixture
 def client():
     from aegislang.api.server import app
+
     return TestClient(app)
 
 
@@ -31,9 +32,7 @@ def policy_file(tmp_path: Path) -> Path:
 
 def _ingest(client: TestClient, policy_file: Path) -> str:
     with open(policy_file, "rb") as f:
-        response = client.post(
-            "/api/v1/ingest", files={"file": ("policy.md", f, "text/markdown")}
-        )
+        response = client.post("/api/v1/ingest", files={"file": ("policy.md", f, "text/markdown")})
     assert response.status_code == 200
     doc_id = response.json()["doc_id"]
     job = client.get(response.json()["status_url"]).json()
