@@ -149,7 +149,7 @@ python -m pytest tests/ -v
 pip install -r requirements-ml.txt
 ```
 
-`pytest` and `httpx` are not in `requirements.txt`, so run `make dev-install` before running the tests. Note that `ruff`, `black --check` and `mypy` currently report pre-existing issues, so `make lint`, `make check-all` and `make ci` do not pass yet.
+`pytest` and `httpx` are not in `requirements.txt`, so run `make dev-install` before running the tests. `make check-all` runs lint (Ruff), type checking (MyPy), the Bandit security check and the tests; all of them pass, and CI runs the same Ruff, Black and MyPy checks.
 
 ## License
 

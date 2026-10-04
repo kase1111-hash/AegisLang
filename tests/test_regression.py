@@ -5,13 +5,14 @@ This module contains regression tests that guard against previously
 identified bugs and ensure they don't recur.
 """
 
-import pytest
 from pathlib import Path
 
+import pytest
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def sample_document(tmp_path: Path) -> Path:
@@ -34,6 +35,7 @@ Customers may request account statements.
 # Parser Regression Tests
 # =============================================================================
 
+
 class TestParserRegressions:
     """Regression tests for the policy parser."""
 
@@ -42,7 +44,7 @@ class TestParserRegressions:
         Regression: Modal verb 'must' was not being detected in certain contexts.
         Fixed in: v0.9.0
         """
-        from aegislang.agents.policy_parser_agent import PolicyParserAgent, ClauseType
+        from aegislang.agents.policy_parser_agent import ClauseType, PolicyParserAgent
 
         parser = PolicyParserAgent(use_mock=True)
 
@@ -63,7 +65,7 @@ class TestParserRegressions:
         Regression: 'shall not' was incorrectly parsed as obligation.
         Fixed in: v0.9.1
         """
-        from aegislang.agents.policy_parser_agent import PolicyParserAgent, ClauseType
+        from aegislang.agents.policy_parser_agent import ClauseType, PolicyParserAgent
 
         parser = PolicyParserAgent(use_mock=True)
 
@@ -110,6 +112,7 @@ class TestParserRegressions:
 # =============================================================================
 # Ingestor Regression Tests
 # =============================================================================
+
 
 class TestIngestorRegressions:
     """Regression tests for the document ingestor."""
@@ -192,14 +195,15 @@ Users may access.
 # Mapper Regression Tests
 # =============================================================================
 
+
 class TestMapperRegressions:
     """Regression tests for schema mapping."""
-
 
 
 # =============================================================================
 # Compiler Regression Tests
 # =============================================================================
+
 
 class TestCompilerRegressions:
     """Regression tests for the compiler."""
@@ -210,12 +214,12 @@ class TestCompilerRegressions:
         Fixed in: v0.9.6
         """
         from aegislang.agents.aegis_ingestor import AegisIngestor
+        from aegislang.agents.compiler_agent import ArtifactFormat, CompilerAgent
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
         from aegislang.agents.schema_mapping_agent import (
             SchemaMappingAgent,
             create_default_registry,
         )
-        from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
 
         # Create document with special characters
         content = """# Policy
@@ -246,9 +250,7 @@ Transactions > $10,000 require: approval & review.
         )
 
         # Verify YAML artifacts exist and contain expected structure
-        yaml_artifacts = [
-            a for a in compiled.artifacts if a.format == ArtifactFormat.YAML
-        ]
+        yaml_artifacts = [a for a in compiled.artifacts if a.format == ArtifactFormat.YAML]
         assert len(yaml_artifacts) > 0
 
     def test_sql_injection_prevention(self, sample_document: Path):
@@ -257,12 +259,12 @@ Transactions > $10,000 require: approval & review.
         Fixed in: v0.9.7
         """
         from aegislang.agents.aegis_ingestor import AegisIngestor
+        from aegislang.agents.compiler_agent import ArtifactFormat, CompilerAgent
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
         from aegislang.agents.schema_mapping_agent import (
             SchemaMappingAgent,
             create_default_registry,
         )
-        from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
 
         # Create document with SQL-like content
         content = """# Policy
@@ -293,15 +295,14 @@ Banks shall validate input before INSERT INTO transactions.
         )
 
         # Verify SQL artifacts exist
-        sql_artifacts = [
-            a for a in compiled.artifacts if a.format == ArtifactFormat.SQL
-        ]
+        sql_artifacts = [a for a in compiled.artifacts if a.format == ArtifactFormat.SQL]
         assert len(sql_artifacts) > 0
 
 
 # =============================================================================
 # Validator Regression Tests
 # =============================================================================
+
 
 class TestValidatorRegressions:
     """Regression tests for the validator."""
@@ -312,12 +313,12 @@ class TestValidatorRegressions:
         Fixed in: v0.9.8
         """
         from aegislang.agents.aegis_ingestor import AegisIngestor
+        from aegislang.agents.compiler_agent import CompilerAgent
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
         from aegislang.agents.schema_mapping_agent import (
             SchemaMappingAgent,
             create_default_registry,
         )
-        from aegislang.agents.compiler_agent import CompilerAgent
         from aegislang.agents.trace_validator_agent import TraceValidatorAgent
 
         # Run minimal pipeline
@@ -356,6 +357,7 @@ class TestValidatorRegressions:
 # API Regression Tests
 # =============================================================================
 
+
 class TestAPIRegressions:
     """Regression tests for API endpoints."""
 
@@ -365,6 +367,7 @@ class TestAPIRegressions:
         Fixed in: v0.9.9
         """
         from fastapi.testclient import TestClient
+
         from aegislang.api.server import app
 
         client = TestClient(app)
@@ -393,6 +396,7 @@ class TestAPIRegressions:
         Fixed in: v0.9.10
         """
         from fastapi.testclient import TestClient
+
         from aegislang.api.server import app
 
         client = TestClient(app)
@@ -418,6 +422,7 @@ class TestAPIRegressions:
 # =============================================================================
 # Edge Case Regression Tests
 # =============================================================================
+
 
 class TestEdgeCaseRegressions:
     """Regression tests for edge cases."""
@@ -485,6 +490,7 @@ class TestEdgeCaseRegressions:
 # Compatibility Regression Tests
 # =============================================================================
 
+
 class TestCompatibilityRegressions:
     """Regression tests for backwards compatibility."""
 
@@ -514,6 +520,7 @@ class TestCompatibilityRegressions:
         Ensure API v1 endpoints remain stable.
         """
         from fastapi.testclient import TestClient
+
         from aegislang.api.server import app
 
         client = TestClient(app)
@@ -533,6 +540,7 @@ class TestCompatibilityRegressions:
 # Stress Regression Tests
 # =============================================================================
 
+
 @pytest.mark.slow
 class TestStressRegressions:
     """Regression tests for stress conditions."""
@@ -543,6 +551,7 @@ class TestStressRegressions:
         Fixed in: v1.0.0
         """
         from fastapi.testclient import TestClient
+
         from aegislang.api.server import app
 
         client = TestClient(app)
@@ -558,6 +567,7 @@ class TestStressRegressions:
         Fixed in: v1.0.0
         """
         import gc
+
         from aegislang.agents.aegis_ingestor import AegisIngestor
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
 

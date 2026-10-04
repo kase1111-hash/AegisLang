@@ -20,8 +20,9 @@ from __future__ import annotations
 import json
 import os
 import re
+from datetime import UTC
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar
 
 import structlog
 from pydantic import BaseModel, Field, field_validator
@@ -76,9 +77,7 @@ class Condition(BaseModel):
     """Conditional trigger for a clause."""
 
     trigger: str = Field(..., description="The triggering condition")
-    temporal: str | None = Field(
-        default=None, description="Temporal aspect of the condition"
-    )
+    temporal: str | None = Field(default=None, description="Temporal aspect of the condition")
 
 
 class TemporalScope(BaseModel):
@@ -95,30 +94,18 @@ class ParsedClause(BaseModel):
     clause_id: str = Field(
         ..., description="Unique clause identifier (doc_id + section + sequence)"
     )
-    source_chunk_id: str = Field(
-        ..., description="Reference to originating text chunk"
-    )
-    source_text: str = Field(
-        ..., description="Original clause text for traceability"
-    )
+    source_chunk_id: str = Field(..., description="Reference to originating text chunk")
+    source_text: str = Field(..., description="Original clause text for traceability")
     type: ClauseType = Field(..., description="Type of clause")
     actor: ActorEntity = Field(..., description="Entity responsible for the action")
     action: ActionPhrase = Field(..., description="The action or verb phrase")
-    object: ObjectEntity | None = Field(
-        default=None, description="Target of the action"
-    )
-    condition: Condition | None = Field(
-        default=None, description="Triggering condition"
-    )
-    temporal_scope: TemporalScope | None = Field(
-        default=None, description="Temporal constraints"
-    )
+    object: ObjectEntity | None = Field(default=None, description="Target of the action")
+    condition: Condition | None = Field(default=None, description="Triggering condition")
+    temporal_scope: TemporalScope | None = Field(default=None, description="Temporal constraints")
     cross_references: list[str] = Field(
         default_factory=list, description="References to other clause_ids"
     )
-    confidence: float = Field(
-        ..., ge=0.0, le=1.0, description="Confidence score for extraction"
-    )
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score for extraction")
 
     @field_validator("confidence")
     @classmethod
@@ -131,9 +118,7 @@ class ParsedClauseCollection(BaseModel):
     """Collection of parsed clauses from a document."""
 
     doc_id: str = Field(..., description="Source document ID")
-    clauses: list[ParsedClause] = Field(
-        default_factory=list, description="Parsed clauses"
-    )
+    clauses: list[ParsedClause] = Field(default_factory=list, description="Parsed clauses")
     parse_timestamp: str = Field(..., description="ISO 8601 timestamp of parsing")
 
 
@@ -223,6 +208,13 @@ Return ONLY valid JSON, no additional text."""
 # -----------------------------------------------------------------------------
 
 
+def _as_dict(value: Any) -> dict[str, Any]:
+    """Validate that an LLM response decoded to a JSON object."""
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected a JSON object from the LLM, got {type(value).__name__}")
+    return value
+
+
 class BaseLLMClient:
     """Base class for LLM clients."""
 
@@ -278,16 +270,14 @@ class AnthropicClient(BaseLLMClient):
             ],
         )
 
-        response_text = next(
-            (block.text for block in message.content if block.type == "text"), ""
-        )
+        response_text = next((block.text for block in message.content if block.type == "text"), "")
         return self._extract_json(response_text)
 
     def _extract_json(self, text: str) -> dict[str, Any]:
         """Extract JSON from response text."""
         # Try to parse directly
         try:
-            return json.loads(text)
+            return _as_dict(json.loads(text))
         except json.JSONDecodeError:
             pass
 
@@ -295,7 +285,7 @@ class AnthropicClient(BaseLLMClient):
         json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
         if json_match:
             try:
-                return json.loads(json_match.group(1))
+                return _as_dict(json.loads(json_match.group(1)))
             except json.JSONDecodeError:
                 pass
 
@@ -303,7 +293,7 @@ class AnthropicClient(BaseLLMClient):
         json_match = re.search(r"\{[\s\S]*\}", text)
         if json_match:
             try:
-                return json.loads(json_match.group(0))
+                return _as_dict(json.loads(json_match.group(0)))
             except json.JSONDecodeError:
                 pass
 
@@ -323,15 +313,11 @@ class OpenAIClient(BaseLLMClient):
         try:
             import openai
         except ImportError as e:
-            raise ImportError(
-                "openai package is required. Install with: pip install openai"
-            ) from e
+            raise ImportError("openai package is required. Install with: pip install openai") from e
 
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
         if not self.api_key:
-            raise ValueError(
-                "OpenAI API key required. Set OPENAI_API_KEY environment variable."
-            )
+            raise ValueError("OpenAI API key required. Set OPENAI_API_KEY environment variable.")
 
         self.client = openai.OpenAI(api_key=self.api_key)
         self.model = model
@@ -354,14 +340,14 @@ class OpenAIClient(BaseLLMClient):
             response_format={"type": "json_object"},
         )
 
-        response_text = response.choices[0].message.content
-        return json.loads(response_text)
+        response_text = response.choices[0].message.content or ""
+        return _as_dict(json.loads(response_text))
 
 
 class MockLLMClient(BaseLLMClient):
     """Mock LLM client for testing without API calls."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Modal indicators from the SPEC clause type taxonomy, ordered from
         # most specific to least specific. Matched on word boundaries.
         self._clause_patterns = [
@@ -469,21 +455,45 @@ class MockLLMClient(BaseLLMClient):
         if actor and actor != "unspecified entity":
             score += 0.1
             # Bonus for specific entity types
-            if any(term in actor.lower() for term in [
-                "bank", "institution", "customer", "employee",
-                "officer", "staff", "person", "individual",
-            ]):
+            if any(
+                term in actor.lower()
+                for term in [
+                    "bank",
+                    "institution",
+                    "customer",
+                    "employee",
+                    "officer",
+                    "staff",
+                    "person",
+                    "individual",
+                ]
+            ):
                 score += 0.05
 
         # Action extraction quality
         if action and action != "comply":
             score += 0.1
             # Bonus for specific AML/KYC action verbs
-            if any(verb in action.lower() for verb in [
-                "verify", "report", "maintain", "submit", "identify",
-                "monitor", "file", "retain", "collect", "conduct",
-                "establish", "assign", "update", "check", "review",
-            ]):
+            if any(
+                verb in action.lower()
+                for verb in [
+                    "verify",
+                    "report",
+                    "maintain",
+                    "submit",
+                    "identify",
+                    "monitor",
+                    "file",
+                    "retain",
+                    "collect",
+                    "conduct",
+                    "establish",
+                    "assign",
+                    "update",
+                    "check",
+                    "review",
+                ]
+            ):
                 score += 0.05
 
         # Object presence
@@ -519,7 +529,7 @@ class MockLLMClient(BaseLLMClient):
         return "comply"
 
     # AML/KYC domain entities — map verbose phrases to concise schema terms
-    _ENTITY_NORMALIZATIONS: dict[str, str] = {
+    _ENTITY_NORMALIZATIONS: ClassVar[dict[str, str]] = {
         "the identity of": "identity",
         "identity of": "identity",
         "customer identity": "customer identity",
@@ -592,7 +602,7 @@ class MockLLMClient(BaseLLMClient):
                 return self._normalize_object(raw)
         return None
 
-    def _extract_condition(self, text: str) -> dict[str, str] | None:
+    def _extract_condition(self, text: str) -> dict[str, str | None] | None:
         """Extract condition from text."""
         patterns = [
             r"\b(?:if|when|where|unless)\s+([\w\s'-]+?)(?:[,.;]|\bthen\b|$)",
@@ -743,15 +753,15 @@ class PolicyParserAgent:
                 type=ClauseType(parsed_data["type"]),
                 actor=ActorEntity(**parsed_data["actor"]),
                 action=ActionPhrase(**parsed_data["action"]),
-                object=ObjectEntity(**parsed_data["object"])
-                if parsed_data.get("object")
-                else None,
-                condition=Condition(**parsed_data["condition"])
-                if parsed_data.get("condition")
-                else None,
-                temporal_scope=TemporalScope(**parsed_data["temporal_scope"])
-                if parsed_data.get("temporal_scope")
-                else None,
+                object=ObjectEntity(**parsed_data["object"]) if parsed_data.get("object") else None,
+                condition=(
+                    Condition(**parsed_data["condition"]) if parsed_data.get("condition") else None
+                ),
+                temporal_scope=(
+                    TemporalScope(**parsed_data["temporal_scope"])
+                    if parsed_data.get("temporal_scope")
+                    else None
+                ),
                 cross_references=parsed_data.get("cross_references", []),
                 confidence=parsed_data.get("confidence", 0.5),
             )
@@ -830,7 +840,7 @@ class PolicyParserAgent:
         Returns:
             ParsedClauseCollection with all parsed clauses
         """
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         doc_id = ingested_doc["doc_id"]
         all_clauses: list[ParsedClause] = []
@@ -851,7 +861,7 @@ class PolicyParserAgent:
         collection = ParsedClauseCollection(
             doc_id=doc_id,
             clauses=all_clauses,
-            parse_timestamp=datetime.now(timezone.utc).isoformat(),
+            parse_timestamp=datetime.now(UTC).isoformat(),
         )
 
         logger.info(
@@ -874,8 +884,8 @@ class PolicyParserAgent:
         clauses: list[str] = []
         current_clause: list[str] = []
 
-        for sentence in sentences:
-            sentence = sentence.strip()
+        for raw_sentence in sentences:
+            sentence = raw_sentence.strip()
             if not sentence:
                 continue
 
@@ -895,9 +905,10 @@ class PolicyParserAgent:
                 if current_clause:
                     # Add context as prefix to this clause if short
                     context = " ".join(current_clause)
-                    if len(context) < 100:
-                        sentence = f"{context} {sentence}"
                     current_clause = []
+                    if len(context) < 100:
+                        clauses.append(f"{context} {sentence}")
+                        continue
 
                 clauses.append(sentence)
             else:
@@ -926,9 +937,7 @@ def main() -> None:
 
     configure_cli_logging()
 
-    parser = argparse.ArgumentParser(
-        description="AegisLang Policy Parser - L2 Parsing Layer"
-    )
+    parser = argparse.ArgumentParser(description="AegisLang Policy Parser - L2 Parsing Layer")
     parser.add_argument(
         "input",
         help="Input file (JSON from L1 ingestor) or raw text file",
@@ -983,7 +992,7 @@ def main() -> None:
     try:
         if args.raw:
             # Parse raw text
-            from datetime import datetime, timezone
+            from datetime import datetime
 
             clauses = agent.parse_text_chunk(
                 chunk_text=input_text,
@@ -993,7 +1002,7 @@ def main() -> None:
             result = ParsedClauseCollection(
                 doc_id="CLI_DOC",
                 clauses=clauses,
-                parse_timestamp=datetime.now(timezone.utc).isoformat(),
+                parse_timestamp=datetime.now(UTC).isoformat(),
             )
         else:
             # Parse JSON from L1 ingestor

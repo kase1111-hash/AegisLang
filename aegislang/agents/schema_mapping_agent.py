@@ -18,10 +18,10 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import structlog
 from pydantic import BaseModel, Field
@@ -77,18 +77,14 @@ class SchemaField(BaseModel):
         default_factory=list, description="Semantic labels for matching"
     )
     description: str | None = Field(default=None, description="Field description")
-    embedding: list[float] | None = Field(
-        default=None, description="Pre-computed embedding vector"
-    )
+    embedding: list[float] | None = Field(default=None, description="Pre-computed embedding vector")
 
 
 class SchemaTable(BaseModel):
     """A table/object in the schema."""
 
     table_name: str = Field(..., description="Name of the table/object")
-    fields: list[SchemaField] = Field(
-        default_factory=list, description="Fields in the table"
-    )
+    fields: list[SchemaField] = Field(default_factory=list, description="Fields in the table")
     description: str | None = Field(default=None, description="Table description")
 
 
@@ -98,21 +94,15 @@ class TargetSchema(BaseModel):
     schema_id: str = Field(..., description="Unique schema identifier")
     schema_type: SchemaType = Field(..., description="Type of schema")
     version: str = Field(default="1.0.0", description="Schema version")
-    tables: list[SchemaTable] = Field(
-        default_factory=list, description="Tables/objects in schema"
-    )
+    tables: list[SchemaTable] = Field(default_factory=list, description="Tables/objects in schema")
 
 
 class SchemaRegistry(BaseModel):
     """Registry of available target schemas."""
 
     registry_version: str = Field(default="1.0.0", description="Registry version")
-    schemas: list[TargetSchema] = Field(
-        default_factory=list, description="Registered schemas"
-    )
-    synonyms: dict[str, list[str]] = Field(
-        default_factory=dict, description="Synonym mappings"
-    )
+    schemas: list[TargetSchema] = Field(default_factory=list, description="Registered schemas")
+    synonyms: dict[str, list[str]] = Field(default_factory=dict, description="Synonym mappings")
     manual_overrides: dict[str, str] = Field(
         default_factory=dict, description="Manual entity-to-path overrides"
     )
@@ -123,16 +113,10 @@ class EntityMapping(BaseModel):
 
     source_entity: str = Field(..., description="The source entity from clause")
     source_role: SourceRole = Field(..., description="Role in the clause")
-    target_path: str = Field(
-        ..., description="Dot-notation path to schema field"
-    )
+    target_path: str = Field(..., description="Dot-notation path to schema field")
     target_schema: str = Field(..., description="Schema ID")
-    confidence: float = Field(
-        ..., ge=0.0, le=1.0, description="Mapping confidence"
-    )
-    mapping_method: MappingMethod = Field(
-        ..., description="Method used for mapping"
-    )
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Mapping confidence")
+    mapping_method: MappingMethod = Field(..., description="Method used for mapping")
 
 
 class SuggestedMatch(BaseModel):
@@ -156,9 +140,7 @@ class MappedClause(BaseModel):
     """Output schema for a mapped clause."""
 
     clause_id: str = Field(..., description="Source clause ID")
-    source_clause: dict[str, Any] = Field(
-        ..., description="Original parsed clause data"
-    )
+    source_clause: dict[str, Any] = Field(..., description="Original parsed clause data")
     mapped_entities: list[EntityMapping] = Field(
         default_factory=list, description="Successfully mapped entities"
     )
@@ -187,7 +169,7 @@ class MappingQualityReport(BaseModel):
     )
 
     @classmethod
-    def from_clauses(cls, clauses: list["MappedClause"]) -> "MappingQualityReport":
+    def from_clauses(cls, clauses: list[MappedClause]) -> MappingQualityReport:
         """Compute quality metrics from a list of mapped clauses."""
         total_entities = 0
         mapped_count = 0
@@ -227,9 +209,7 @@ class MappedClauseCollection(BaseModel):
 
     doc_id: str = Field(..., description="Source document ID")
     target_schema: str = Field(..., description="Target schema used")
-    clauses: list[MappedClause] = Field(
-        default_factory=list, description="Mapped clauses"
-    )
+    clauses: list[MappedClause] = Field(default_factory=list, description="Mapped clauses")
     mapping_timestamp: str = Field(..., description="ISO 8601 timestamp")
     quality_report: MappingQualityReport | None = Field(
         default=None, description="Quality metrics for this mapping batch"
@@ -243,7 +223,6 @@ class MappedClauseCollection(BaseModel):
 
 class EmbeddingDimensionError(ValueError):
     """Raised when embedding dimensions don't match expected value."""
-    pass
 
 
 class BaseEmbeddingProvider:
@@ -293,7 +272,7 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
     """OpenAI embeddings provider."""
 
     # Known dimensions for OpenAI models
-    MODEL_DIMENSIONS = {
+    MODEL_DIMENSIONS: ClassVar[dict[str, int]] = {
         "text-embedding-3-small": 1536,
         "text-embedding-3-large": 3072,
         "text-embedding-ada-002": 1536,
@@ -308,9 +287,7 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         try:
             import openai
         except ImportError as e:
-            raise ImportError(
-                "openai package required. Install with: pip install openai"
-            ) from e
+            raise ImportError("openai package required. Install with: pip install openai") from e
 
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
         if not self.api_key:
@@ -353,8 +330,7 @@ class SentenceTransformerProvider(BaseEmbeddingProvider):
             from sentence_transformers import SentenceTransformer
         except ImportError as e:
             raise ImportError(
-                "sentence-transformers required. "
-                "Install with: pip install sentence-transformers"
+                "sentence-transformers required. " "Install with: pip install sentence-transformers"
             ) from e
 
         self.model = SentenceTransformer(model_name)
@@ -381,7 +357,7 @@ class SentenceTransformerProvider(BaseEmbeddingProvider):
     def embed(self, text: str) -> list[float]:
         """Generate embedding using Sentence Transformers."""
         embedding = self.model.encode(text)
-        result = embedding.tolist()
+        result: list[float] = embedding.tolist()
         if self._validate_dimensions:
             return self.validate_embedding(result, text[:50])
         return result
@@ -389,7 +365,7 @@ class SentenceTransformerProvider(BaseEmbeddingProvider):
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for batch."""
         embeddings = self.model.encode(texts)
-        results = embeddings.tolist()
+        results: list[list[float]] = embeddings.tolist()
         if self._validate_dimensions:
             for i, emb in enumerate(results):
                 self.validate_embedding(emb, texts[i][:50] if i < len(texts) else "")
@@ -488,10 +464,7 @@ class SchemaMappingAgent:
                     text = " ".join(text_parts)
 
                     # Use pre-computed embedding or generate new one
-                    if field.embedding:
-                        embedding = field.embedding
-                    else:
-                        embedding = self.embedding_provider.embed(text)
+                    embedding = field.embedding or self.embedding_provider.embed(text)
 
                     self._field_embeddings[full_path] = (embedding, path)
 
@@ -563,7 +536,7 @@ class SchemaMappingAgent:
         # Truncate overly long entities
         original_length = len(entity)
         if original_length > self.MAX_ENTITY_LENGTH:
-            entity = entity[:self.MAX_ENTITY_LENGTH].rsplit(" ", 1)[0]  # Truncate at word boundary
+            entity = entity[: self.MAX_ENTITY_LENGTH].rsplit(" ", 1)[0]  # Truncate at word boundary
             logger.warning(
                 "entity_truncated",
                 original_length=original_length,
@@ -575,7 +548,9 @@ class SchemaMappingAgent:
         # Check manual overrides first
         if entity_lower in self.registry.manual_overrides:
             target_path = self.registry.manual_overrides[entity_lower]
-            schema_id = target_path.split(":")[0] if ":" in target_path else target_schema_id or "default"
+            schema_id = (
+                target_path.split(":")[0] if ":" in target_path else target_schema_id or "default"
+            )
             path = target_path.split(":")[-1]
 
             mapping = EntityMapping(
@@ -715,7 +690,7 @@ class SchemaMappingAgent:
         """Compute cosine similarity between two vectors."""
         import math
 
-        dot_product = sum(a * b for a, b in zip(vec1, vec2))
+        dot_product = sum(a * b for a, b in zip(vec1, vec2, strict=False))
         magnitude1 = math.sqrt(sum(a * a for a in vec1))
         magnitude2 = math.sqrt(sum(b * b for b in vec2))
 
@@ -724,7 +699,7 @@ class SchemaMappingAgent:
 
         return dot_product / (magnitude1 * magnitude2)
 
-    def map_clause(
+    def map_clause(  # noqa: PLR0912 - one branch per entity role and outcome
         self,
         parsed_clause: dict[str, Any],
         target_schema_id: str | None = None,
@@ -744,7 +719,7 @@ class SchemaMappingAgent:
         unmapped_entities: list[UnmappedEntity] = []
 
         # Map actor
-        if "actor" in parsed_clause and parsed_clause["actor"]:
+        if parsed_clause.get("actor"):
             actor_entity = parsed_clause["actor"].get("entity", "")
             if actor_entity:
                 mapping, unmapped = self.map_entity(
@@ -756,19 +731,17 @@ class SchemaMappingAgent:
                     unmapped_entities.append(unmapped)
 
         # Map object
-        if "object" in parsed_clause and parsed_clause["object"]:
+        if parsed_clause.get("object"):
             obj_entity = parsed_clause["object"].get("entity", "")
             if obj_entity:
-                mapping, unmapped = self.map_entity(
-                    obj_entity, SourceRole.OBJECT, target_schema_id
-                )
+                mapping, unmapped = self.map_entity(obj_entity, SourceRole.OBJECT, target_schema_id)
                 if mapping:
                     mapped_entities.append(mapping)
                 if unmapped:
                     unmapped_entities.append(unmapped)
 
         # Map condition subject if present
-        if "condition" in parsed_clause and parsed_clause["condition"]:
+        if parsed_clause.get("condition"):
             trigger = parsed_clause["condition"].get("trigger", "")
             if trigger:
                 # Extract subject from trigger
@@ -791,9 +764,7 @@ class SchemaMappingAgent:
             status = MappingStatus.NEEDS_REVIEW
 
         # Check for low confidence mappings
-        low_confidence = any(
-            m.confidence < 0.8 for m in mapped_entities
-        )
+        low_confidence = any(m.confidence < 0.8 for m in mapped_entities)
         if low_confidence and status == MappingStatus.COMPLETE:
             status = MappingStatus.NEEDS_REVIEW
 
@@ -833,7 +804,7 @@ class SchemaMappingAgent:
             doc_id=doc_id,
             target_schema=target_schema_id or "default",
             clauses=mapped_clauses,
-            mapping_timestamp=datetime.now(timezone.utc).isoformat(),
+            mapping_timestamp=datetime.now(UTC).isoformat(),
             quality_report=quality,
         )
 
@@ -933,8 +904,11 @@ def create_default_registry() -> SchemaRegistry:
                                 field_name="institution_id",
                                 field_type="UUID",
                                 semantic_labels=[
-                                    "institution", "bank", "financial institution",
-                                    "organization", "company"
+                                    "institution",
+                                    "bank",
+                                    "financial institution",
+                                    "organization",
+                                    "company",
                                 ],
                             ),
                             SchemaField(
@@ -1015,15 +989,14 @@ def main() -> None:
 
     configure_cli_logging()
 
-    parser = argparse.ArgumentParser(
-        description="AegisLang Schema Mapper - L3 Mapping Layer"
-    )
+    parser = argparse.ArgumentParser(description="AegisLang Schema Mapper - L3 Mapping Layer")
     parser.add_argument(
         "input",
         help="Input file (JSON from L2 parser)",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         help="Output file path (default: stdout)",
     )
     parser.add_argument(

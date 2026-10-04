@@ -14,7 +14,7 @@ import threading
 import time
 import uuid
 from collections.abc import Iterator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -37,17 +37,18 @@ class _SqliteDict:
     def __getitem__(self, key: str) -> dict[str, Any]:
         with self._lock:
             row = self._conn.execute(
-                f"SELECT value FROM {self._table} WHERE key = ?", (key,)  # noqa: S608  # nosec B608
+                f"SELECT value FROM {self._table} WHERE key = ?", (key,)  # nosec B608
             ).fetchone()
         if row is None:
             raise KeyError(key)
-        return json.loads(row[0])
+        value: dict[str, Any] = json.loads(row[0])
+        return value
 
     def __setitem__(self, key: str, value: Any) -> None:
         blob = json.dumps(value, default=str)
         with self._lock:
             self._conn.execute(
-                f"INSERT OR REPLACE INTO {self._table} (key, value) VALUES (?, ?)",  # noqa: S608  # nosec B608
+                f"INSERT OR REPLACE INTO {self._table} (key, value) VALUES (?, ?)",  # nosec B608
                 (key, blob),
             )
             self._conn.commit()
@@ -55,7 +56,7 @@ class _SqliteDict:
     def __delitem__(self, key: str) -> None:
         with self._lock:
             cursor = self._conn.execute(
-                f"DELETE FROM {self._table} WHERE key = ?", (key,)  # noqa: S608  # nosec B608
+                f"DELETE FROM {self._table} WHERE key = ?", (key,)  # nosec B608
             )
             self._conn.commit()
         if cursor.rowcount == 0:
@@ -64,16 +65,15 @@ class _SqliteDict:
     def __contains__(self, key: object) -> bool:
         with self._lock:
             row = self._conn.execute(
-                f"SELECT 1 FROM {self._table} WHERE key = ?", (str(key),)  # noqa: S608  # nosec B608
+                f"SELECT 1 FROM {self._table} WHERE key = ?",  # nosec B608
+                (str(key),),
             ).fetchone()
         return row is not None
 
     def __len__(self) -> int:
         with self._lock:
-            row = self._conn.execute(
-                f"SELECT COUNT(*) FROM {self._table}"  # noqa: S608  # nosec B608
-            ).fetchone()
-        return row[0]
+            row = self._conn.execute(f"SELECT COUNT(*) FROM {self._table}").fetchone()  # nosec B608
+        return int(row[0])
 
     def get(self, key: str, default: Any = None) -> Any:
         try:
@@ -94,24 +94,20 @@ class _SqliteDict:
     def items(self) -> Iterator[tuple[str, dict[str, Any]]]:
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT key, value FROM {self._table}"  # noqa: S608  # nosec B608
+                f"SELECT key, value FROM {self._table}"  # nosec B608
             ).fetchall()
         for key, blob in rows:
             yield key, json.loads(blob)
 
     def keys(self) -> Iterator[str]:
         with self._lock:
-            rows = self._conn.execute(
-                f"SELECT key FROM {self._table}"  # noqa: S608  # nosec B608
-            ).fetchall()
+            rows = self._conn.execute(f"SELECT key FROM {self._table}").fetchall()  # nosec B608
         for (key,) in rows:
             yield key
 
     def values(self) -> Iterator[dict[str, Any]]:
         with self._lock:
-            rows = self._conn.execute(
-                f"SELECT value FROM {self._table}"  # noqa: S608  # nosec B608
-            ).fetchall()
+            rows = self._conn.execute(f"SELECT value FROM {self._table}").fetchall()  # nosec B608
         for (blob,) in rows:
             yield json.loads(blob)
 
@@ -134,24 +130,22 @@ class _SqliteListDict:
             raise KeyError(key)
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT value FROM {self._table} WHERE key = ? ORDER BY rowid",  # noqa: S608  # nosec B608
+                f"SELECT value FROM {self._table} WHERE key = ? ORDER BY rowid",  # nosec B608
                 (key,),
             ).fetchall()
         return [json.loads(r[0]) for r in rows]
 
     def __setitem__(self, key: str, values: list[dict[str, Any]]) -> None:
         with self._lock:
+            self._conn.execute(f"DELETE FROM {self._table} WHERE key = ?", (key,))  # nosec B608
             self._conn.execute(
-                f"DELETE FROM {self._table} WHERE key = ?", (key,)  # noqa: S608  # nosec B608
-            )
-            self._conn.execute(
-                f"INSERT OR IGNORE INTO {self._keys_table} (key) VALUES (?)",  # noqa: S608  # nosec B608
+                f"INSERT OR IGNORE INTO {self._keys_table} (key) VALUES (?)",  # nosec B608
                 (key,),
             )
             for val in values:
                 blob = json.dumps(val, default=str)
                 self._conn.execute(
-                    f"INSERT INTO {self._table} (key, value) VALUES (?, ?)",  # noqa: S608  # nosec B608
+                    f"INSERT INTO {self._table} (key, value) VALUES (?, ?)",  # nosec B608
                     (key, blob),
                 )
             self._conn.commit()
@@ -159,16 +153,17 @@ class _SqliteListDict:
     def __contains__(self, key: object) -> bool:
         with self._lock:
             row = self._conn.execute(
-                f"SELECT 1 FROM {self._keys_table} WHERE key = ?", (str(key),)  # noqa: S608  # nosec B608
+                f"SELECT 1 FROM {self._keys_table} WHERE key = ?",  # nosec B608
+                (str(key),),
             ).fetchone()
         return row is not None
 
     def __len__(self) -> int:
         with self._lock:
             row = self._conn.execute(
-                f"SELECT COUNT(*) FROM {self._keys_table}"  # noqa: S608  # nosec B608
+                f"SELECT COUNT(*) FROM {self._keys_table}"  # nosec B608
             ).fetchone()
-        return row[0]
+        return int(row[0])
 
     def get(self, key: str, default: Any = None) -> Any:
         try:
@@ -181,7 +176,7 @@ class _SqliteListDict:
             keys = [
                 r[0]
                 for r in self._conn.execute(
-                    f"SELECT key FROM {self._keys_table}"  # noqa: S608  # nosec B608
+                    f"SELECT key FROM {self._keys_table}"  # nosec B608
                 ).fetchall()
             ]
         for key in keys:
@@ -199,9 +194,7 @@ class SqliteStorage:
         db_path: str | None = None,
         job_ttl_seconds: int | None = None,
     ):
-        self._db_path = db_path or os.environ.get(
-            "AEGISLANG_SQLITE_PATH", "aegislang_data.db"
-        )
+        self._db_path = db_path or os.environ.get("AEGISLANG_SQLITE_PATH", "aegislang_data.db")
         self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
         self._lock = threading.Lock()
 
@@ -276,7 +269,7 @@ class SqliteStorage:
             "job_id": job_id,
             "job_type": job_type,
             "status": "pending",
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "completed_at": None,
             "result": None,
             "error": None,
@@ -299,7 +292,7 @@ class SqliteStorage:
             if str(status) in ("completed", "failed") or (
                 hasattr(status, "value") and status.value in ("completed", "failed")
             ):
-                job["completed_at"] = datetime.now(timezone.utc).isoformat()
+                job["completed_at"] = datetime.now(UTC).isoformat()
             self.jobs[job_id] = job
 
     def store_document(self, doc_id: str, doc_data: dict[str, Any]) -> None:
@@ -320,7 +313,7 @@ class SqliteStorage:
 
     def _cleanup_expired_jobs(self) -> None:
         """Remove jobs that have exceeded their TTL."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expired = []
         for job_id, job in self.jobs.items():
             status = job.get("status", "")
@@ -331,9 +324,7 @@ class SqliteStorage:
             if not completed_at:
                 continue
             try:
-                completed_time = datetime.fromisoformat(
-                    completed_at.replace("Z", "+00:00")
-                )
+                completed_time = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
                 if (now - completed_time).total_seconds() > self.job_ttl:
                     expired.append(job_id)
             except (ValueError, TypeError):

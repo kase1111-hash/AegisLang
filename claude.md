@@ -16,7 +16,7 @@ make test                 # All tests
 make test-cov             # With coverage (fails under 70%)
 make test-fast            # Skip tests marked slow
 
-# Code quality (lint, format-check and type-check currently fail on pre-existing debt)
+# Code quality (all must pass; CI runs ruff, black --check and mypy)
 make lint                 # Run Ruff linter
 make format               # Format with Black
 make type-check           # MyPy (non-blocking in CI)
@@ -83,11 +83,11 @@ Each agent also has a CLI (`python -m aegislang.agents.<agent> --help`); CLIs lo
 ## Coding Standards
 
 - **Python 3.11+** required
-- **Type hints** expected for all functions. `pyproject.toml` enables strict-leaning MyPy flags (e.g. `disallow_untyped_defs`), but not `strict = true`; the code currently has ~58 MyPy errors and CI runs MyPy as non-blocking
+- **Type hints** required for all functions. `pyproject.toml` enables strict-leaning MyPy flags (e.g. `disallow_untyped_defs`, `disallow_untyped_decorators`), though not `strict = true`. `mypy aegislang/` is clean and blocking in CI; run it in an environment with `requirements.txt` installed so FastAPI's types are visible
 - **Docstrings** Google-style for public APIs
 - **Line length** 100 characters
 - **Formatting** Black (`make format`); Ruff for linting
-- **Existing lint debt**: `ruff check .` reports ~367 findings and `black --check .` would reformat ~21 files. Don't add new findings, and don't mix mass reformatting into functional changes
+- **Lint/format are clean**: `ruff check .` and `black --check .` pass. Rule exceptions are scoped in `pyproject.toml` with a reason (e.g. lazy imports of optional dependencies, FastAPI auth dependencies); add new ones the same way rather than with blanket ignores
 
 ### Patterns
 

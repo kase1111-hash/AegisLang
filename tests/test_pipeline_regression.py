@@ -45,15 +45,20 @@ def _create_aml_registry() -> SchemaRegistry:
                                 field_name="identity_verified",
                                 field_type="BOOLEAN",
                                 semantic_labels=[
-                                    "identity", "verification", "kyc",
-                                    "verified", "customer identity",
+                                    "identity",
+                                    "verification",
+                                    "kyc",
+                                    "verified",
+                                    "customer identity",
                                 ],
                             ),
                             SchemaField(
                                 field_name="risk_level",
                                 field_type="VARCHAR(20)",
                                 semantic_labels=[
-                                    "risk", "risk level", "risk rating",
+                                    "risk",
+                                    "risk level",
+                                    "risk rating",
                                     "risk profile",
                                 ],
                             ),
@@ -61,7 +66,9 @@ def _create_aml_registry() -> SchemaRegistry:
                                 field_name="beneficial_owner",
                                 field_type="VARCHAR(255)",
                                 semantic_labels=[
-                                    "beneficial owner", "UBO", "ownership",
+                                    "beneficial owner",
+                                    "UBO",
+                                    "ownership",
                                 ],
                             ),
                         ],
@@ -73,16 +80,20 @@ def _create_aml_registry() -> SchemaRegistry:
                                 field_name="suspicious_flag",
                                 field_type="BOOLEAN",
                                 semantic_labels=[
-                                    "suspicious", "suspicious activity",
-                                    "flagged", "SAR",
+                                    "suspicious",
+                                    "suspicious activity",
+                                    "flagged",
+                                    "SAR",
                                 ],
                             ),
                             SchemaField(
                                 field_name="amount",
                                 field_type="DECIMAL(18,2)",
                                 semantic_labels=[
-                                    "amount", "transaction amount",
-                                    "threshold", "value",
+                                    "amount",
+                                    "transaction amount",
+                                    "threshold",
+                                    "value",
                                 ],
                             ),
                         ],
@@ -94,15 +105,20 @@ def _create_aml_registry() -> SchemaRegistry:
                                 field_name="action",
                                 field_type="VARCHAR(100)",
                                 semantic_labels=[
-                                    "action", "event", "activity",
-                                    "procedures", "due diligence",
+                                    "action",
+                                    "event",
+                                    "activity",
+                                    "procedures",
+                                    "due diligence",
                                 ],
                             ),
                             SchemaField(
                                 field_name="actor",
                                 field_type="VARCHAR(255)",
                                 semantic_labels=[
-                                    "actor", "staff", "employee",
+                                    "actor",
+                                    "staff",
+                                    "employee",
                                     "officer",
                                 ],
                             ),
@@ -130,9 +146,7 @@ def _run_pipeline_stages(doc_path: Path):
 
     registry = _create_aml_registry()
     mapper = SchemaMappingAgent(registry=registry, use_mock=True)
-    mapped = mapper.map_parsed_collection(
-        parsed.model_dump(), target_schema_id="aml_schema"
-    )
+    mapped = mapper.map_parsed_collection(parsed.model_dump(), target_schema_id="aml_schema")
 
     return ingested, parsed, mapped
 
@@ -149,17 +163,15 @@ class TestFinCENCDDRegression:
 
     def test_clause_count_stable(self, pipeline_result):
         _, parsed, _ = pipeline_result
-        assert len(parsed.clauses) >= 10, (
-            f"Expected at least 10 clauses, got {len(parsed.clauses)}"
-        )
+        assert len(parsed.clauses) >= 10, f"Expected at least 10 clauses, got {len(parsed.clauses)}"
 
     def test_obligation_clauses_dominant(self, pipeline_result):
         _, parsed, _ = pipeline_result
         types = [c.type.value for c in parsed.clauses]
         obligation_count = types.count("obligation")
-        assert obligation_count >= 8, (
-            f"Expected at least 8 obligation clauses, got {obligation_count}"
-        )
+        assert (
+            obligation_count >= 8
+        ), f"Expected at least 8 obligation clauses, got {obligation_count}"
 
     def test_prohibition_clause_present(self, pipeline_result):
         _, parsed, _ = pipeline_result
@@ -169,20 +181,21 @@ class TestFinCENCDDRegression:
     def test_mapping_does_not_regress(self, pipeline_result):
         _, _, mapped = pipeline_result
         partial_or_complete = sum(
-            1 for c in mapped.clauses
+            1
+            for c in mapped.clauses
             if c.mapping_status in (MappingStatus.COMPLETE, MappingStatus.PARTIAL)
         )
         # With improved mock extraction, we expect at least some mappings
-        assert partial_or_complete >= 1, (
-            f"Expected at least 1 mapped clause, got {partial_or_complete}"
-        )
+        assert (
+            partial_or_complete >= 1
+        ), f"Expected at least 1 mapped clause, got {partial_or_complete}"
 
     def test_all_clauses_have_confidence(self, pipeline_result):
         _, parsed, _ = pipeline_result
         for clause in parsed.clauses:
-            assert 0.0 < clause.confidence <= 1.0, (
-                f"Clause {clause.clause_id} has invalid confidence: {clause.confidence}"
-            )
+            assert (
+                0.0 < clause.confidence <= 1.0
+            ), f"Clause {clause.clause_id} has invalid confidence: {clause.confidence}"
 
 
 class TestFFIECCIPRegression:
@@ -197,9 +210,7 @@ class TestFFIECCIPRegression:
 
     def test_clause_count_stable(self, pipeline_result):
         _, parsed, _ = pipeline_result
-        assert len(parsed.clauses) >= 12, (
-            f"Expected at least 12 clauses, got {len(parsed.clauses)}"
-        )
+        assert len(parsed.clauses) >= 12, f"Expected at least 12 clauses, got {len(parsed.clauses)}"
 
     def test_permission_clauses_present(self, pipeline_result):
         _, parsed, _ = pipeline_result
@@ -209,9 +220,9 @@ class TestFFIECCIPRegression:
 
     def test_sections_extracted(self, pipeline_result):
         ingested, _, _ = pipeline_result
-        assert len(ingested.sections) >= 5, (
-            f"Expected at least 5 sections, got {len(ingested.sections)}"
-        )
+        assert (
+            len(ingested.sections) >= 5
+        ), f"Expected at least 5 sections, got {len(ingested.sections)}"
 
 
 class TestFATFRec10Regression:
@@ -226,25 +237,21 @@ class TestFATFRec10Regression:
 
     def test_clause_count_stable(self, pipeline_result):
         _, parsed, _ = pipeline_result
-        assert len(parsed.clauses) >= 14, (
-            f"Expected at least 14 clauses, got {len(parsed.clauses)}"
-        )
+        assert len(parsed.clauses) >= 14, f"Expected at least 14 clauses, got {len(parsed.clauses)}"
 
     def test_multiple_clause_types(self, pipeline_result):
         _, parsed, _ = pipeline_result
         types = {c.type.value for c in parsed.clauses}
-        assert len(types) >= 3, (
-            f"Expected at least 3 clause types, got: {types}"
-        )
+        assert len(types) >= 3, f"Expected at least 3 clause types, got: {types}"
 
     def test_conditions_extracted(self, pipeline_result):
         # FATF R.10 states triggers inline ("must perform CDD when ..."); these
         # are classified by their modal verb and carry the trigger as a condition.
         _, parsed, _ = pipeline_result
         with_condition = [c for c in parsed.clauses if c.condition]
-        assert len(with_condition) >= 3, (
-            f"Expected at least 3 clauses with conditions, got {len(with_condition)}"
-        )
+        assert (
+            len(with_condition) >= 3
+        ), f"Expected at least 3 clauses with conditions, got {len(with_condition)}"
 
     def test_should_not_is_prohibition(self, pipeline_result):
         _, parsed, _ = pipeline_result

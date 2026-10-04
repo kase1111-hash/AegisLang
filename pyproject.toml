@@ -97,6 +97,9 @@ ignore = [
     "S101",    # Use of assert (allowed in tests)
     "COM812",  # Missing trailing comma (conflicts with formatter)
     "ISC001",  # Implicit string concatenation (conflicts with formatter)
+    "PLC0415", # Import outside top level: optional/heavy deps (anthropic, openai,
+               # sentence-transformers, neo4j, uvicorn) are imported lazily on purpose
+    "UP042",   # str+Enum -> StrEnum would change str() output of existing enums
 ]
 
 # Allow autofix for all enabled rules
@@ -105,7 +108,18 @@ unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
 # Tests can use assert and have magic values
-"tests/**/*.py" = ["S101", "PLR2004", "ARG"]
+"tests/**/*.py" = ["S101", "PLR2004", "ARG", "PTH123"]
+# Load tests use random for jitter and urllib against a local server
+"tests/performance/*.py" = ["S101", "PLR2004", "ARG", "PTH123", "S311", "S310", "RUF012"]
+# FastAPI dependencies (api_key) are declared for their auth/rate-limit side effects;
+# error handlers are registered after the app is created
+"aegislang/api/server.py" = ["ARG001", "E402"]
+# `format` is part of the public compiler API (keyword arguments)
+"aegislang/agents/compiler_agent.py" = ["A002"]
+# Table names interpolated into SQL are fixed constants, never user input
+"aegislang/api/sqlite_storage.py" = ["S608"]
+# The example runner adjusts sys.path before importing aegislang
+"examples/run_aml_pipeline.py" = ["E402"]
 # __init__.py files can have unused imports
 "**/__init__.py" = ["F401"]
 
@@ -154,13 +168,10 @@ exclude = [
 module = [
     "anthropic.*",
     "openai.*",
-    "redis.*",
     "neo4j.*",
     "sentry_sdk.*",
-    "spacy.*",
     "sentence_transformers.*",
     "structlog.*",
-    "pdfplumber.*",
     "docx.*",
     "bs4.*",
 ]
@@ -242,7 +253,7 @@ ignore = []  # Add vulnerability IDs to ignore if needed
 line-length = 100
 target-version = ['py311']
 include = '\.pyi?$'
-exclude = '''
+force-exclude = '''
 /(
     \.git
   | \.venv

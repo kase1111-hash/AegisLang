@@ -2,20 +2,22 @@
 API tests for AegisLang REST API.
 """
 
-import pytest
-from fastapi.testclient import TestClient
 import json
 from pathlib import Path
 
+import pytest
+from fastapi.testclient import TestClient
 
 # =============================================================================
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def client():
     """Create test client."""
     from aegislang.api.server import app
+
     return TestClient(app)
 
 
@@ -43,6 +45,7 @@ def sample_markdown_file(tmp_path, sample_markdown_content):
 # Health Check Tests
 # =============================================================================
 
+
 class TestHealthCheck:
     """Tests for health check endpoint."""
 
@@ -68,6 +71,7 @@ class TestHealthCheck:
 # =============================================================================
 # Document Ingestion Tests
 # =============================================================================
+
 
 class TestDocumentIngestion:
     """Tests for document ingestion endpoint."""
@@ -127,6 +131,7 @@ class TestDocumentIngestion:
 # Job Status Tests
 # =============================================================================
 
+
 class TestJobStatus:
     """Tests for job status endpoint."""
 
@@ -161,6 +166,7 @@ class TestJobStatus:
 # Document Retrieval Tests
 # =============================================================================
 
+
 class TestDocumentRetrieval:
     """Tests for document retrieval endpoints."""
 
@@ -180,6 +186,7 @@ class TestDocumentRetrieval:
 # =============================================================================
 # Schema Registry Tests
 # =============================================================================
+
 
 class TestSchemaRegistry:
     """Tests for schema registry endpoints."""
@@ -257,6 +264,7 @@ class TestSchemaRegistry:
 # Compilation Tests
 # =============================================================================
 
+
 class TestCompilation:
     """Tests for compilation endpoint."""
 
@@ -276,6 +284,7 @@ class TestCompilation:
 # =============================================================================
 # Error Handling Tests
 # =============================================================================
+
 
 class TestErrorHandling:
     """Tests for error handling."""
@@ -303,6 +312,7 @@ class TestErrorHandling:
 # =============================================================================
 # OpenAPI Documentation Tests
 # =============================================================================
+
 
 class TestOpenAPI:
     """Tests for OpenAPI documentation."""
@@ -334,24 +344,29 @@ class TestOpenAPI:
 # Phase 1 Remediation Tests
 # =============================================================================
 
+
 class TestBackgroundTasksAreSync:
     """Verify background tasks are sync so FastAPI runs them in a thread pool."""
 
     def test_process_ingestion_is_not_async(self):
         """process_ingestion must be sync to avoid blocking the event loop."""
         import inspect
+
         from aegislang.api.server import process_ingestion
-        assert not inspect.iscoroutinefunction(process_ingestion), (
-            "process_ingestion should be a regular def, not async def"
-        )
+
+        assert not inspect.iscoroutinefunction(
+            process_ingestion
+        ), "process_ingestion should be a regular def, not async def"
 
     def test_process_compilation_is_not_async(self):
         """process_compilation must be sync to avoid blocking the event loop."""
         import inspect
+
         from aegislang.api.server import process_compilation
-        assert not inspect.iscoroutinefunction(process_compilation), (
-            "process_compilation should be a regular def, not async def"
-        )
+
+        assert not inspect.iscoroutinefunction(
+            process_compilation
+        ), "process_compilation should be a regular def, not async def"
 
 
 class TestMockModeAutoDetection:
@@ -362,6 +377,7 @@ class TestMockModeAutoDetection:
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         from aegislang.api.server import _should_use_mock
+
         assert _should_use_mock() is True
 
     def test_should_use_mock_with_anthropic_key(self, monkeypatch):
@@ -369,6 +385,7 @@ class TestMockModeAutoDetection:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         from aegislang.api.server import _should_use_mock
+
         assert _should_use_mock() is False
 
     def test_should_use_mock_with_openai_key(self, monkeypatch):
@@ -376,6 +393,7 @@ class TestMockModeAutoDetection:
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
         from aegislang.api.server import _should_use_mock
+
         assert _should_use_mock() is False
 
     def test_should_use_mock_with_both_keys(self, monkeypatch):
@@ -383,12 +401,14 @@ class TestMockModeAutoDetection:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
         from aegislang.api.server import _should_use_mock
+
         assert _should_use_mock() is False
 
 
 # =============================================================================
 # Phase 3 Remediation Tests
 # =============================================================================
+
 
 class TestRequestIdMiddleware:
     """Verify request ID middleware is wired in and functional."""
@@ -430,6 +450,7 @@ class TestSSEJobStream:
 
         # Wait for job to complete (it runs in background during test)
         import time
+
         for _ in range(20):
             status = client.get(f"/api/v1/jobs/{job_id}").json()["status"]
             if status in ("completed", "failed"):
@@ -463,22 +484,30 @@ class TestStatusUrlRename:
 # Phase 4 Remediation Tests — Parametrized Edge Cases
 # =============================================================================
 
+
 class TestFileExtensionValidation:
     """Parametrized tests for file upload extension validation."""
 
-    @pytest.mark.parametrize("filename,expected_status", [
-        ("policy.md", 200),
-        ("policy.html", 200),
-        ("policy.htm", 200),
-        ("policy.markdown", 200),
-        ("POLICY.MD", 200),
-        ("policy.exe", 400),
-        ("policy.py", 400),
-        ("policy.md.exe", 400),
-        ("noextension", 400),
-    ])
+    @pytest.mark.parametrize(
+        "filename,expected_status",
+        [
+            ("policy.md", 200),
+            ("policy.html", 200),
+            ("policy.htm", 200),
+            ("policy.markdown", 200),
+            ("POLICY.MD", 200),
+            ("policy.exe", 400),
+            ("policy.py", 400),
+            ("policy.md.exe", 400),
+            ("noextension", 400),
+        ],
+    )
     def test_file_extension_accepted_or_rejected(
-        self, client, tmp_path, filename, expected_status,
+        self,
+        client,
+        tmp_path,
+        filename,
+        expected_status,
     ):
         """Validate that allowed extensions pass and disallowed ones are rejected."""
         test_file = tmp_path / "upload_test"
@@ -494,20 +523,24 @@ class TestFileExtensionValidation:
 class TestClauseTypeDetectionParametrized:
     """Parametrized clause type detection tests."""
 
-    @pytest.mark.parametrize("text,expected_type", [
-        ("Institutions must verify identity.", "obligation"),
-        ("Banks shall report all transactions.", "obligation"),
-        ("All records must be maintained for 5 years.", "obligation"),
-        ("Staff must not share confidential information.", "prohibition"),
-        ("Employees shall not access data without authorization.", "prohibition"),
-        ("Institutions may request additional documentation.", "permission"),
-        ("If a transaction exceeds $10000, then report it.", "conditional"),
-    ])
+    @pytest.mark.parametrize(
+        "text,expected_type",
+        [
+            ("Institutions must verify identity.", "obligation"),
+            ("Banks shall report all transactions.", "obligation"),
+            ("All records must be maintained for 5 years.", "obligation"),
+            ("Staff must not share confidential information.", "prohibition"),
+            ("Employees shall not access data without authorization.", "prohibition"),
+            ("Institutions may request additional documentation.", "permission"),
+            ("If a transaction exceeds $10000, then report it.", "conditional"),
+        ],
+    )
     def test_mock_parser_clause_type(self, text, expected_type):
         """Verify mock parser detects the correct clause type for various inputs."""
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
+
         parser = PolicyParserAgent(use_mock=True)
         result = parser.parse_clause(text, "CL001", "C001")
-        assert result.type.value == expected_type, (
-            f"Expected {expected_type} for: {text!r}, got {result.type.value}"
-        )
+        assert (
+            result.type.value == expected_type
+        ), f"Expected {expected_type} for: {text!r}, got {result.type.value}"

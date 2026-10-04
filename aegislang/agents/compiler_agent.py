@@ -18,11 +18,10 @@ Functional Requirements:
 from __future__ import annotations
 
 import json
-import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import structlog
 from jinja2 import BaseLoader, TemplateNotFound, select_autoescape
@@ -76,9 +75,7 @@ class CompiledArtifact(BaseModel):
     syntax_valid: bool = Field(..., description="Whether syntax is valid")
     template_used: str = Field(..., description="Template name used")
     compilation_timestamp: str = Field(..., description="ISO 8601 timestamp")
-    warnings: list[str] = Field(
-        default_factory=list, description="Compilation warnings"
-    )
+    warnings: list[str] = Field(default_factory=list, description="Compilation warnings")
 
 
 class CompiledArtifactCollection(BaseModel):
@@ -89,16 +86,14 @@ class CompiledArtifactCollection(BaseModel):
         default_factory=list, description="Compiled artifacts"
     )
     compilation_timestamp: str = Field(..., description="ISO 8601 timestamp")
-    formats_generated: list[str] = Field(
-        default_factory=list, description="Formats generated"
-    )
+    formats_generated: list[str] = Field(default_factory=list, description="Formats generated")
 
 
 # -----------------------------------------------------------------------------
 # Built-in Templates
 # -----------------------------------------------------------------------------
 
-YAML_OBLIGATION_TEMPLATE = '''# Source: {{ clause.source_text | truncate(80) }}
+YAML_OBLIGATION_TEMPLATE = """# Source: {{ clause.source_text | truncate(80) }}
 # Clause ID: {{ clause.clause_id }}
 # Generated: {{ timestamp }}
 # Confidence: {{ confidence }}
@@ -158,9 +153,9 @@ control:
     source_document: "{{ doc_id }}"
     confidence: {{ confidence }}
     generated_by: "aegislang-compiler-v{{ version }}"
-'''
+"""
 
-YAML_PROHIBITION_TEMPLATE = '''# Source: {{ clause.source_text | truncate(80) }}
+YAML_PROHIBITION_TEMPLATE = """# Source: {{ clause.source_text | truncate(80) }}
 # Clause ID: {{ clause.clause_id }}
 # Generated: {{ timestamp }}
 # Confidence: {{ confidence }}
@@ -199,9 +194,9 @@ control:
     source_document: "{{ doc_id }}"
     confidence: {{ confidence }}
     generated_by: "aegislang-compiler-v{{ version }}"
-'''
+"""
 
-SQL_CHECK_CONSTRAINT_TEMPLATE = '''-- Source: {{ clause.source_text | truncate(70) }}
+SQL_CHECK_CONSTRAINT_TEMPLATE = """-- Source: {{ clause.source_text | truncate(70) }}
 -- Clause ID: {{ clause.clause_id }}
 -- Generated: {{ timestamp }}
 -- Confidence: {{ confidence }}
@@ -246,7 +241,7 @@ IS 'AegisLang: {{ clause.source_text | sqlsafe(200) }}';
 -- {{ clause.type | capitalize }} clause: no database constraint is generated for this
 -- clause type. It is recorded here for clause-to-artifact traceability only.
 {% endif %}
-'''
+"""
 
 PYTHON_TEST_TEMPLATE = '''"""
 Test for compliance rule: {{ clause.clause_id }}
@@ -360,7 +355,7 @@ SOURCE_TEXT = """{{ clause.source_text }}"""
 CONFIDENCE = {{ confidence }}
 '''
 
-TERRAFORM_POLICY_TEMPLATE = '''# Source: {{ clause.source_text | truncate(70) }}
+TERRAFORM_POLICY_TEMPLATE = """# Source: {{ clause.source_text | truncate(70) }}
 # Clause ID: {{ clause.clause_id }}
 # Generated: {{ timestamp }}
 # Confidence: {{ confidence }}
@@ -403,9 +398,9 @@ resource "sentinel_policy" "{{ clause.clause_id | lower | replace('-', '_') | re
     confidence          = "{{ confidence }}"
   }
 }
-'''
+"""
 
-REGO_POLICY_TEMPLATE = '''# Source: {{ clause.source_text | truncate(70) }}
+REGO_POLICY_TEMPLATE = """# Source: {{ clause.source_text | truncate(70) }}
 # Clause ID: {{ clause.clause_id }}
 # Generated: {{ timestamp }}
 # Confidence: {{ confidence }}
@@ -474,9 +469,9 @@ metadata := {
     "generated_by": "aegislang-compiler-v{{ version }}",
     "source_text": "{{ clause.source_text | truncate(200) | replace('"', '\\"') }}"
 }
-'''
+"""
 
-JSON_RULE_TEMPLATE = '''{
+JSON_RULE_TEMPLATE = """{
   "rule_id": "{{ clause.clause_id }}",
   "type": "{{ clause.type }}",
   "version": "{{ version }}",
@@ -527,7 +522,7 @@ JSON_RULE_TEMPLATE = '''{
     "generated_by": "aegislang-compiler-v{{ version }}",
     "template": "json_rule"
   }
-}'''
+}"""
 
 
 # -----------------------------------------------------------------------------
@@ -538,7 +533,7 @@ JSON_RULE_TEMPLATE = '''{
 class TemplateRegistry:
     """Registry for Jinja2 templates."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._templates: dict[str, dict[str, str]] = {
             "yaml": {
                 "obligation": YAML_OBLIGATION_TEMPLATE,
@@ -589,9 +584,7 @@ class TemplateRegistry:
             else str(s).replace("'", "''").replace("\\", "\\\\") if s else ""
         )
 
-    def get_template(
-        self, format: ArtifactFormat, clause_type: str
-    ) -> tuple[str, str]:
+    def get_template(self, format: ArtifactFormat, clause_type: str) -> tuple[str, str]:
         """
         Get template for format and clause type.
 
@@ -609,16 +602,12 @@ class TemplateRegistry:
 
         raise TemplateNotFound(f"No template for {format.value}/{clause_type}")
 
-    def render(
-        self, template_str: str, context: dict[str, Any]
-    ) -> str:
+    def render(self, template_str: str, context: dict[str, Any]) -> str:
         """Render a template with context."""
         template = self._env.from_string(template_str)
         return template.render(**context)
 
-    def register_template(
-        self, format: ArtifactFormat, clause_type: str, template: str
-    ) -> None:
+    def register_template(self, format: ArtifactFormat, clause_type: str, template: str) -> None:
         """Register a custom template."""
         if format.value not in self._templates:
             self._templates[format.value] = {}
@@ -658,6 +647,7 @@ class SyntaxValidator:
         """Validate YAML syntax."""
         try:
             import yaml
+
             yaml.safe_load(content)
             return True, []
         except yaml.YAMLError as e:
@@ -668,13 +658,14 @@ class SyntaxValidator:
         """Validate SQL syntax."""
         try:
             import sqlparse
+
             parsed = sqlparse.parse(content)
             if not parsed:
                 return False, ["Empty SQL"]
             # Basic validation - check for statement types
             warnings = []
             for stmt in parsed:
-                if stmt.get_type() == "UNKNOWN":
+                if stmt.get_type() == "UNKNOWN":  # type: ignore[no-untyped-call]
                     warnings.append(f"Unknown statement type: {str(stmt)[:50]}")
             return True, warnings
         except Exception as e:
@@ -685,6 +676,7 @@ class SyntaxValidator:
         """Validate Python syntax."""
         try:
             import ast
+
             ast.parse(content)
             return True, []
         except SyntaxError as e:
@@ -713,7 +705,7 @@ class SyntaxValidator:
     @staticmethod
     def validate_terraform(content: str) -> tuple[bool, list[str]]:
         """Basic Terraform/HCL validation."""
-        warnings = []
+        warnings: list[str] = []
         # Check for balanced braces
         if content.count("{") != content.count("}"):
             return False, ["Unbalanced braces in HCL"]
@@ -721,9 +713,7 @@ class SyntaxValidator:
             return False, ["Unbalanced quotes in HCL"]
         return True, warnings
 
-    def validate(
-        self, content: str, format: ArtifactFormat
-    ) -> tuple[bool, list[str]]:
+    def validate(self, content: str, format: ArtifactFormat) -> tuple[bool, list[str]]:
         """Validate content for given format."""
         validators = {
             ArtifactFormat.YAML: self.validate_yaml,
@@ -752,7 +742,7 @@ class CompilerAgent:
     Translates mapped clauses into executable artifacts using templates.
     """
 
-    FILE_EXTENSIONS = {
+    FILE_EXTENSIONS: ClassVar[dict[ArtifactFormat, str]] = {
         ArtifactFormat.YAML: ".yaml",
         ArtifactFormat.SQL: ".sql",
         ArtifactFormat.PYTHON: ".py",
@@ -817,10 +807,7 @@ class CompilerAgent:
                 mappings["object_path"] = path
 
         # Calculate confidence
-        confidences = [
-            m.get("confidence", 0.5)
-            for m in mapped_clause.get("mapped_entities", [])
-        ]
+        confidences = [m.get("confidence", 0.5) for m in mapped_clause.get("mapped_entities", [])]
         avg_confidence = sum(confidences) / len(confidences) if confidences else 0.5
 
         # Determine severity
@@ -832,9 +819,7 @@ class CompilerAgent:
             severity = "medium"
 
         # Get template
-        template_str, template_name = self.template_registry.get_template(
-            format, clause_type
-        )
+        template_str, template_name = self.template_registry.get_template(format, clause_type)
 
         # Build context
         context = {
@@ -843,7 +828,7 @@ class CompilerAgent:
             "doc_id": doc_id,
             "confidence": round(avg_confidence, 2),
             "severity": severity,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "version": VERSION,
             # SQL-specific
             "table_name": self._extract_table_name(mappings),
@@ -873,7 +858,7 @@ class CompilerAgent:
             file_path=file_path,
             syntax_valid=is_valid,
             template_used=template_name,
-            compilation_timestamp=datetime.now(timezone.utc).isoformat(),
+            compilation_timestamp=datetime.now(UTC).isoformat(),
             warnings=warnings,
         )
 
@@ -890,11 +875,11 @@ class CompilerAgent:
         """Extract table name from mappings."""
         for path in [mappings.get("actor_path"), mappings.get("object_path")]:
             if path and "." in path:
-                return path.split(".")[0]
+                return str(path).split(".")[0]
         return "compliance_table"
 
     def _generate_check_condition(
-        self, clause: dict[str, Any], mappings: dict[str, Any]
+        self, clause: dict[str, Any], mappings: dict[str, Any]  # noqa: ARG002 - reserved
     ) -> str:
         """Generate SQL check condition from clause."""
         action = clause.get("action", {}).get("verb", "comply")
@@ -904,8 +889,7 @@ class CompilerAgent:
 
         if clause.get("type") == "prohibition":
             return f"NOT {action_column}"
-        else:
-            return f"{action_column} = TRUE"
+        return f"{action_column} = TRUE"
 
     def _infer_resource_type(self, clause: dict[str, Any]) -> str:
         """Infer Terraform resource type from clause."""
@@ -914,14 +898,13 @@ class CompilerAgent:
         # Simple mapping of common actors to resource types
         if "storage" in actor or "data" in actor:
             return "aws_s3_bucket"
-        elif "network" in actor or "vpc" in actor:
+        if "network" in actor or "vpc" in actor:
             return "aws_vpc"
-        elif "compute" in actor or "server" in actor:
+        if "compute" in actor or "server" in actor:
             return "aws_instance"
-        elif "database" in actor or "db" in actor:
+        if "database" in actor or "db" in actor:
             return "aws_db_instance"
-        else:
-            return "aws_resource"
+        return "aws_resource"
 
     def compile_mapped_collection(
         self,
@@ -945,22 +928,22 @@ class CompilerAgent:
         artifacts: list[CompiledArtifact] = []
 
         for clause in mapped_collection.get("clauses", []):
-            for format in formats:
+            for artifact_format in formats:
                 try:
-                    artifact = self.compile_clause(clause, format, doc_id)
+                    artifact = self.compile_clause(clause, artifact_format, doc_id)
                     artifacts.append(artifact)
                 except Exception as e:
                     logger.warning(
                         "compilation_failed",
                         clause_id=clause.get("clause_id"),
-                        format=format.value,
+                        format=artifact_format.value,
                         error=str(e),
                     )
 
         collection = CompiledArtifactCollection(
             doc_id=doc_id,
             artifacts=artifacts,
-            compilation_timestamp=datetime.now(timezone.utc).isoformat(),
+            compilation_timestamp=datetime.now(UTC).isoformat(),
             formats_generated=[f.value for f in formats],
         )
 
@@ -973,9 +956,7 @@ class CompilerAgent:
 
         return collection
 
-    def write_artifacts(
-        self, collection: CompiledArtifactCollection
-    ) -> list[Path]:
+    def write_artifacts(self, collection: CompiledArtifactCollection) -> list[Path]:
         """Write artifacts to output directory."""
         written_paths: list[Path] = []
 
@@ -1008,15 +989,14 @@ def main() -> None:
 
     configure_cli_logging()
 
-    parser = argparse.ArgumentParser(
-        description="AegisLang Compiler - L4 Compilation Layer"
-    )
+    parser = argparse.ArgumentParser(description="AegisLang Compiler - L4 Compilation Layer")
     parser.add_argument(
         "input",
         help="Input file (JSON from L3 mapper)",
     )
     parser.add_argument(
-        "-o", "--output-dir",
+        "-o",
+        "--output-dir",
         default="./artifacts",
         help="Output directory (default: ./artifacts)",
     )

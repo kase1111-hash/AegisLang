@@ -5,14 +5,15 @@ These tests verify the system behaves correctly from an end-user perspective,
 testing through the API endpoints and validating complete user journeys.
 """
 
-import pytest
 import time
 from pathlib import Path
 
+import pytest
 
 # =============================================================================
 # Test Data Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def sample_aml_policy() -> str:
@@ -100,10 +101,12 @@ def temp_policy_file(sample_aml_policy: str, tmp_path: Path) -> Path:
 # API Client Fixture
 # =============================================================================
 
+
 @pytest.fixture
 def api_client():
     """Create a test API client."""
     from fastapi.testclient import TestClient
+
     from aegislang.api.server import app
 
     return TestClient(app)
@@ -112,6 +115,7 @@ def api_client():
 # =============================================================================
 # System Tests - Complete User Journeys
 # =============================================================================
+
 
 class TestUserJourneyDocumentProcessing:
     """
@@ -163,6 +167,7 @@ class TestUserJourneyDocumentProcessing:
         )
         assert response.status_code == 200
         compile_result = response.json()
+        assert compile_result["status"] == "accepted"
 
         # Step 4: Verify clauses were extracted
         response = api_client.get(f"/api/v1/clauses/{doc_id}")
@@ -346,6 +351,7 @@ class TestUserJourneyAuditCompliance:
 # API Contract Tests
 # =============================================================================
 
+
 class TestAPIContracts:
     """Tests verifying API contracts and expected behaviors."""
 
@@ -396,6 +402,7 @@ class TestAPIContracts:
 # Performance Acceptance Tests
 # =============================================================================
 
+
 class TestPerformanceAcceptance:
     """Verify system meets performance requirements."""
 
@@ -431,6 +438,7 @@ class TestPerformanceAcceptance:
 # =============================================================================
 # Error Handling and Recovery Tests
 # =============================================================================
+
 
 class TestErrorHandlingRecovery:
     """Test system behavior under error conditions."""
@@ -499,6 +507,7 @@ class TestErrorHandlingRecovery:
 # =============================================================================
 # Regression Guard Tests
 # =============================================================================
+
 
 class TestRegressionGuards:
     """Tests that guard against known issues and regressions."""
@@ -577,6 +586,7 @@ Clause {i}.3: Customers may request service {i}.
 # Data Integrity Tests
 # =============================================================================
 
+
 class TestDataIntegrity:
     """Tests verifying data integrity throughout the system."""
 
@@ -636,6 +646,7 @@ class TestDataIntegrity:
 # =============================================================================
 # Security Acceptance Tests
 # =============================================================================
+
 
 class TestSecurityAcceptance:
     """Basic security acceptance tests."""

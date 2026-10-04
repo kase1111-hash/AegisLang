@@ -19,9 +19,9 @@ from __future__ import annotations
 import hashlib
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import structlog
 import tiktoken
@@ -51,12 +51,8 @@ class DocumentSection(BaseModel):
 
     section_id: str = Field(..., description="Unique section identifier")
     section_title: str = Field(..., description="Section title or heading")
-    parent_section: str | None = Field(
-        default=None, description="Parent section ID if nested"
-    )
-    hierarchy_level: int = Field(
-        ..., ge=1, le=6, description="Heading level (1-6)"
-    )
+    parent_section: str | None = Field(default=None, description="Parent section ID if nested")
+    hierarchy_level: int = Field(..., ge=1, le=6, description="Heading level (1-6)")
     text_chunks: list[TextChunk] = Field(
         default_factory=list, description="Text chunks in this section"
     )
@@ -66,12 +62,8 @@ class DocumentMetadata(BaseModel):
     """Metadata about the ingested document."""
 
     source_file: str = Field(..., description="Original file path or URL")
-    ingestion_timestamp: str = Field(
-        ..., description="ISO 8601 timestamp of ingestion"
-    )
-    document_type: str = Field(
-        ..., description="Document format: pdf, docx, markdown, html"
-    )
+    ingestion_timestamp: str = Field(..., description="ISO 8601 timestamp of ingestion")
+    document_type: str = Field(..., description="Document format: pdf, docx, markdown, html")
     page_count: int | None = Field(default=None, description="Number of pages")
     language: str = Field(default="en", description="Detected language code")
     hash: str = Field(..., description="SHA-256 hash of source document")
@@ -80,9 +72,7 @@ class DocumentMetadata(BaseModel):
 class IngestedDocument(BaseModel):
     """Output schema for the ingestion layer."""
 
-    doc_id: str = Field(
-        ..., pattern=r"^[A-Z0-9_]+$", description="Unique document identifier"
-    )
+    doc_id: str = Field(..., pattern=r"^[A-Z0-9_]+$", description="Unique document identifier")
     metadata: DocumentMetadata = Field(..., description="Document metadata")
     sections: list[DocumentSection] = Field(
         default_factory=list, description="Document sections with chunks"
@@ -100,9 +90,7 @@ class ChunkingConfig(BaseModel):
     target_tokens: int = Field(default=768, description="Target chunk size")
     min_tokens: int = Field(default=256, description="Minimum chunk size")
     max_tokens: int = Field(default=1024, description="Maximum chunk size")
-    overlap_tokens: int = Field(
-        default=64, description="Overlap between chunks"
-    )
+    overlap_tokens: int = Field(default=64, description="Overlap between chunks")
 
 
 # -----------------------------------------------------------------------------
@@ -129,9 +117,7 @@ class SemanticChunker:
         # Fallback: estimate ~4 chars per token (average for English)
         return len(text) // 4
 
-    def chunk_text(
-        self, text: str, section_id: str
-    ) -> list[TextChunk]:
+    def chunk_text(self, text: str, section_id: str) -> list[TextChunk]:
         """
         Split text into chunks based on semantic boundaries.
 
@@ -156,9 +142,7 @@ class SemanticChunker:
             if para_tokens > self.config.max_tokens:
                 # Flush current chunk
                 if current_chunk:
-                    chunks.append(
-                        self._create_chunk(current_chunk, section_id, len(chunks))
-                    )
+                    chunks.append(self._create_chunk(current_chunk, section_id, len(chunks)))
                     current_chunk = []
                     current_tokens = 0
 
@@ -167,32 +151,27 @@ class SemanticChunker:
                 chunks.extend(sentence_chunks)
                 continue
 
-            # Check if adding this paragraph exceeds target
-            if current_tokens + para_tokens > self.config.target_tokens:
-                # Flush if we have minimum tokens
-                if current_tokens >= self.config.min_tokens:
-                    chunks.append(
-                        self._create_chunk(current_chunk, section_id, len(chunks))
-                    )
-                    # Add overlap from previous chunk
-                    overlap_text = self._get_overlap_text(current_chunk)
-                    current_chunk = [overlap_text] if overlap_text else []
-                    current_tokens = self.count_tokens(overlap_text) if overlap_text else 0
+            # Flush when adding this paragraph exceeds the target and we have minimum tokens
+            if (
+                current_tokens + para_tokens > self.config.target_tokens
+                and current_tokens >= self.config.min_tokens
+            ):
+                chunks.append(self._create_chunk(current_chunk, section_id, len(chunks)))
+                # Add overlap from previous chunk
+                overlap_text = self._get_overlap_text(current_chunk)
+                current_chunk = [overlap_text] if overlap_text else []
+                current_tokens = self.count_tokens(overlap_text) if overlap_text else 0
 
             current_chunk.append(para)
             current_tokens += para_tokens
 
         # Flush remaining
         if current_chunk:
-            chunks.append(
-                self._create_chunk(current_chunk, section_id, len(chunks))
-            )
+            chunks.append(self._create_chunk(current_chunk, section_id, len(chunks)))
 
         return chunks
 
-    def _split_by_sentences(
-        self, text: str, section_id: str, chunk_offset: int
-    ) -> list[TextChunk]:
+    def _split_by_sentences(self, text: str, section_id: str, chunk_offset: int) -> list[TextChunk]:
         """Split text by sentence boundaries."""
         # Simple sentence splitting regex
         sentences = re.split(r"(?<=[.!?])\s+", text)
@@ -205,33 +184,28 @@ class SemanticChunker:
         for sentence in sentences:
             sent_tokens = self.count_tokens(sentence)
 
-            if current_tokens + sent_tokens > self.config.target_tokens:
-                if current_sentences:
-                    chunks.append(
-                        self._create_chunk(
-                            current_sentences,
-                            section_id,
-                            chunk_offset + len(chunks),
-                        )
+            if current_tokens + sent_tokens > self.config.target_tokens and current_sentences:
+                chunks.append(
+                    self._create_chunk(
+                        current_sentences,
+                        section_id,
+                        chunk_offset + len(chunks),
                     )
-                    current_sentences = []
-                    current_tokens = 0
+                )
+                current_sentences = []
+                current_tokens = 0
 
             current_sentences.append(sentence)
             current_tokens += sent_tokens
 
         if current_sentences:
             chunks.append(
-                self._create_chunk(
-                    current_sentences, section_id, chunk_offset + len(chunks)
-                )
+                self._create_chunk(current_sentences, section_id, chunk_offset + len(chunks))
             )
 
         return chunks
 
-    def _create_chunk(
-        self, parts: list[str], section_id: str, index: int
-    ) -> TextChunk:
+    def _create_chunk(self, parts: list[str], section_id: str, index: int) -> TextChunk:
         """Create a TextChunk from text parts."""
         text = " ".join(parts)
         return TextChunk(
@@ -272,7 +246,7 @@ class SemanticChunker:
 class BaseDocumentParser:
     """Base class for document parsers."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.chunker = SemanticChunker()
 
     def parse(self, file_path: Path) -> tuple[list[DocumentSection], int | None]:
@@ -287,14 +261,12 @@ class BaseDocumentParser:
     def compute_hash(self, file_path: Path) -> str:
         """Compute SHA-256 hash of file."""
         sha256 = hashlib.sha256()
-        with open(file_path, "rb") as f:
+        with file_path.open("rb") as f:
             for chunk in iter(lambda: f.read(8192), b""):
                 sha256.update(chunk)
         return sha256.hexdigest()
 
-    def _extract_hierarchy(
-        self, text: str, doc_id: str
-    ) -> list[DocumentSection]:
+    def _extract_hierarchy(self, text: str, doc_id: str) -> list[DocumentSection]:
         """
         Extract document hierarchy from markdown-style headings.
 
@@ -305,8 +277,7 @@ class BaseDocumentParser:
 
         # Find all headings with their positions
         headings = [
-            (m.start(), len(m.group(1)), m.group(2).strip())
-            for m in heading_pattern.finditer(text)
+            (m.start(), len(m.group(1)), m.group(2).strip()) for m in heading_pattern.finditer(text)
         ]
 
         if not headings:
@@ -324,10 +295,7 @@ class BaseDocumentParser:
 
         for i, (pos, level, title) in enumerate(headings):
             # Get text until next heading or end
-            if i + 1 < len(headings):
-                end_pos = headings[i + 1][0]
-            else:
-                end_pos = len(text)
+            end_pos = headings[i + 1][0] if i + 1 < len(headings) else len(text)
 
             # Extract section text (skip the heading line itself)
             heading_end = text.find("\n", pos)
@@ -379,7 +347,7 @@ class PDFParser(BaseDocumentParser):
 
         # Count pages
         page_count = 0
-        with open(file_path, "rb") as f:
+        with file_path.open("rb") as f:
             for _ in PDFPage.get_pages(f):
                 page_count += 1
 
@@ -410,15 +378,14 @@ class DOCXParser(BaseDocumentParser):
         except ImportError as e:
             logger.error("python-docx not installed", error=str(e))
             raise ImportError(
-                "python-docx is required for DOCX parsing. "
-                "Install with: pip install python-docx"
+                "python-docx is required for DOCX parsing. " "Install with: pip install python-docx"
             ) from e
 
         # Read via BytesIO so the file handle is closed immediately,
         # rather than relying on python-docx internal cleanup.
         from io import BytesIO
 
-        with open(file_path, "rb") as f:
+        with file_path.open("rb") as f:
             docx_bytes = BytesIO(f.read())
         doc = Document(docx_bytes)
         doc_id = self._generate_doc_id(file_path)
@@ -450,9 +417,7 @@ class DOCXParser(BaseDocumentParser):
                         section_title=current_heading or "Untitled Section",
                         parent_section=parent_id,
                         hierarchy_level=current_level,
-                        text_chunks=self.chunker.chunk_text(
-                            "\n\n".join(current_text), section_id
-                        ),
+                        text_chunks=self.chunker.chunk_text("\n\n".join(current_text), section_id),
                     )
                     sections.append(section)
                     parent_stack.append((current_level, section_id))
@@ -486,9 +451,7 @@ class DOCXParser(BaseDocumentParser):
                 section_title=current_heading or "Document Content",
                 parent_section=parent_id,
                 hierarchy_level=current_level,
-                text_chunks=self.chunker.chunk_text(
-                    "\n\n".join(current_text), section_id
-                ),
+                text_chunks=self.chunker.chunk_text("\n\n".join(current_text), section_id),
             )
             sections.append(section)
 
@@ -545,7 +508,6 @@ class HTMLParser(BaseDocumentParser):
 
         doc_id = self._generate_doc_id(file_path)
         sections: list[DocumentSection] = []
-        section_count = 0
         parent_stack: list[tuple[int, str]] = []
 
         # Find all heading elements
@@ -563,21 +525,20 @@ class HTMLParser(BaseDocumentParser):
             )
             return [section] if section.text_chunks else [], None
 
-        for i, heading in enumerate(headings):
+        for section_count, heading in enumerate(headings, start=1):
             level = int(heading.name[1])  # h1 -> 1, h2 -> 2, etc.
             title = heading.get_text(strip=True)
 
             # Get content until next heading
             content_parts: list[str] = []
             for sibling in heading.next_siblings:
-                if sibling.name in ["h1", "h2", "h3", "h4", "h5", "h6"]:
+                if getattr(sibling, "name", None) in ["h1", "h2", "h3", "h4", "h5", "h6"]:
                     break
                 if hasattr(sibling, "get_text"):
                     text = sibling.get_text(strip=True)
                     if text:
                         content_parts.append(text)
 
-            section_count += 1
             section_id = f"{doc_id}_S{section_count:03d}"
 
             # Find parent
@@ -590,9 +551,7 @@ class HTMLParser(BaseDocumentParser):
                 section_title=title,
                 parent_section=parent_id,
                 hierarchy_level=level,
-                text_chunks=self.chunker.chunk_text(
-                    "\n\n".join(content_parts), section_id
-                ),
+                text_chunks=self.chunker.chunk_text("\n\n".join(content_parts), section_id),
             )
 
             sections.append(section)
@@ -621,7 +580,7 @@ class AegisIngestor:
     normalized, chunked output for downstream processing.
     """
 
-    SUPPORTED_FORMATS = {
+    SUPPORTED_FORMATS: ClassVar[dict[str, tuple[str, type[BaseDocumentParser]]]] = {
         ".pdf": ("pdf", PDFParser),
         ".docx": ("docx", DOCXParser),
         ".md": ("markdown", MarkdownParser),
@@ -696,7 +655,7 @@ class AegisIngestor:
         # Create metadata
         metadata = DocumentMetadata(
             source_file=str(path.absolute()),
-            ingestion_timestamp=datetime.now(timezone.utc).isoformat(),
+            ingestion_timestamp=datetime.now(UTC).isoformat(),
             document_type=doc_type,
             page_count=page_count,
             language="en",  # TODO: Add language detection
@@ -765,15 +724,14 @@ def main() -> None:
 
     configure_cli_logging()
 
-    parser = argparse.ArgumentParser(
-        description="AegisLang Document Ingestor - L1 Ingestion Layer"
-    )
+    parser = argparse.ArgumentParser(description="AegisLang Document Ingestor - L1 Ingestion Layer")
     parser.add_argument(
         "file",
         help="Path to document file (PDF, DOCX, Markdown, or HTML)",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         help="Output file path (default: stdout)",
     )
     parser.add_argument(

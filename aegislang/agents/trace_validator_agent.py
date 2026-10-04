@@ -21,7 +21,7 @@ import json
 import os
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -45,15 +45,15 @@ class Neo4jConnectionPool:
     Implements singleton pattern to ensure connection reuse across the application.
     """
 
-    _instance: "Neo4jConnectionPool | None" = None
+    _instance: Neo4jConnectionPool | None = None
     _driver: Any = None
 
-    def __new__(cls) -> "Neo4jConnectionPool":
+    def __new__(cls) -> Neo4jConnectionPool:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Only initialize once
         if Neo4jConnectionPool._driver is not None:
             return
@@ -175,13 +175,25 @@ def get_neo4j_pool() -> Neo4jConnectionPool:
 # and relationship types. Everything else is parameterized via $variables.
 # -----------------------------------------------------------------------------
 
-ALLOWED_NODE_TYPES = frozenset({
-    "document", "section", "chunk", "clause", "mapping", "artifact",
-})
-ALLOWED_RELATIONSHIPS = frozenset({
-    "CONTAINS_SECTION", "CONTAINS_CHUNK", "PARSED_TO",
-    "MAPPED_TO", "COMPILED_TO",
-})
+ALLOWED_NODE_TYPES = frozenset(
+    {
+        "document",
+        "section",
+        "chunk",
+        "clause",
+        "mapping",
+        "artifact",
+    }
+)
+ALLOWED_RELATIONSHIPS = frozenset(
+    {
+        "CONTAINS_SECTION",
+        "CONTAINS_CHUNK",
+        "PARSED_TO",
+        "MAPPED_TO",
+        "COMPILED_TO",
+    }
+)
 
 
 # -----------------------------------------------------------------------------
@@ -203,9 +215,7 @@ class CheckResult(BaseModel):
     check_name: str = Field(..., description="Name of the check")
     passed: bool = Field(..., description="Whether the check passed")
     message: str = Field(..., description="Check result message")
-    details: dict[str, Any] = Field(
-        default_factory=dict, description="Additional details"
-    )
+    details: dict[str, Any] = Field(default_factory=dict, description="Additional details")
 
 
 class Lineage(BaseModel):
@@ -226,16 +236,12 @@ class ValidationResult(BaseModel):
     source_clause: str = Field(..., description="Source clause ID")
     generated_artifact: str = Field(..., description="Artifact file path")
     validation_status: ValidationStatus = Field(..., description="Overall status")
-    confidence_score: float = Field(
-        ..., ge=0.0, le=1.0, description="Trace confidence"
-    )
+    confidence_score: float = Field(..., ge=0.0, le=1.0, description="Trace confidence")
     validation_checks: list[CheckResult] = Field(
         default_factory=list, description="Individual check results"
     )
     lineage: Lineage = Field(..., description="Complete lineage chain")
-    review_flags: list[str] = Field(
-        default_factory=list, description="Flags for human review"
-    )
+    review_flags: list[str] = Field(default_factory=list, description="Flags for human review")
     validated_at: str = Field(..., description="ISO 8601 timestamp")
     validated_by: str = Field(
         default="aegislang-validator-v1.0.0", description="Validator identifier"
@@ -246,12 +252,8 @@ class ValidationResultCollection(BaseModel):
     """Collection of validation results."""
 
     doc_id: str = Field(..., description="Source document ID")
-    results: list[ValidationResult] = Field(
-        default_factory=list, description="Validation results"
-    )
-    summary: dict[str, int] = Field(
-        default_factory=dict, description="Status summary counts"
-    )
+    results: list[ValidationResult] = Field(default_factory=list, description="Validation results")
+    summary: dict[str, int] = Field(default_factory=dict, description="Status summary counts")
     validation_timestamp: str = Field(..., description="ISO 8601 timestamp")
 
 
@@ -259,10 +261,10 @@ class ProvenanceNode(BaseModel):
     """Node in the provenance graph."""
 
     node_id: str = Field(..., description="Unique node identifier")
-    node_type: str = Field(..., description="Type: document, section, chunk, clause, mapping, artifact")
-    properties: dict[str, Any] = Field(
-        default_factory=dict, description="Node properties"
+    node_type: str = Field(
+        ..., description="Type: document, section, chunk, clause, mapping, artifact"
     )
+    properties: dict[str, Any] = Field(default_factory=dict, description="Node properties")
     created_at: str = Field(..., description="ISO 8601 timestamp")
 
 
@@ -273,9 +275,7 @@ class ProvenanceEdge(BaseModel):
     source_id: str = Field(..., description="Source node ID")
     target_id: str = Field(..., description="Target node ID")
     relationship: str = Field(..., description="Relationship type")
-    properties: dict[str, Any] = Field(
-        default_factory=dict, description="Edge properties"
-    )
+    properties: dict[str, Any] = Field(default_factory=dict, description="Edge properties")
 
 
 class ProvenanceGraph(BaseModel):
@@ -283,12 +283,8 @@ class ProvenanceGraph(BaseModel):
 
     graph_id: str = Field(..., description="Unique graph identifier")
     doc_id: str = Field(..., description="Source document ID")
-    nodes: list[ProvenanceNode] = Field(
-        default_factory=list, description="Graph nodes"
-    )
-    edges: list[ProvenanceEdge] = Field(
-        default_factory=list, description="Graph edges"
-    )
+    nodes: list[ProvenanceNode] = Field(default_factory=list, description="Graph nodes")
+    edges: list[ProvenanceEdge] = Field(default_factory=list, description="Graph edges")
     created_at: str = Field(..., description="ISO 8601 timestamp")
 
 
@@ -303,15 +299,9 @@ class ValidationConfig(BaseModel):
     confidence_threshold: float = Field(
         default=0.85, description="Minimum confidence for auto-approval"
     )
-    review_threshold: float = Field(
-        default=0.70, description="Below this, flag for human review"
-    )
-    block_threshold: float = Field(
-        default=0.50, description="Below this, block artifact"
-    )
-    require_syntax_valid: bool = Field(
-        default=True, description="Require valid syntax"
-    )
+    review_threshold: float = Field(default=0.70, description="Below this, flag for human review")
+    block_threshold: float = Field(default=0.50, description="Below this, block artifact")
+    require_syntax_valid: bool = Field(default=True, description="Require valid syntax")
     require_complete_chain: bool = Field(
         default=True, description="Require complete provenance chain"
     )
@@ -423,7 +413,6 @@ class ValidationChecks:
         artifact: dict[str, Any],
     ) -> CheckResult:
         """Check semantic alignment between clause and artifact."""
-        source_text = parsed_clause.get("source_text", "")
         artifact_content = artifact.get("content", "")
 
         # Extract key terms from source
@@ -460,20 +449,19 @@ class ValidationChecks:
                 message="All key terms preserved in artifact",
                 details={"checks": dict(checks)},
             )
-        elif passed_count >= total // 2:
+        if passed_count >= total // 2:
             return CheckResult(
                 check_name="semantic_alignment",
                 passed=True,
                 message=f"Partial alignment: {passed_count}/{total} key terms found",
                 details={"checks": dict(checks)},
             )
-        else:
-            return CheckResult(
-                check_name="semantic_alignment",
-                passed=False,
-                message=f"Poor alignment: only {passed_count}/{total} key terms found",
-                details={"checks": dict(checks)},
-            )
+        return CheckResult(
+            check_name="semantic_alignment",
+            passed=False,
+            message=f"Poor alignment: only {passed_count}/{total} key terms found",
+            details={"checks": dict(checks)},
+        )
 
     @staticmethod
     def check_cross_reference_integrity(
@@ -555,8 +543,7 @@ class TraceValidatorAgent:
 
         if mapped_clause:
             mapping_confidences = [
-                m.get("confidence", 0.5)
-                for m in mapped_clause.get("mapped_entities", [])
+                m.get("confidence", 0.5) for m in mapped_clause.get("mapped_entities", [])
             ]
             confidences.extend(mapping_confidences)
 
@@ -570,9 +557,7 @@ class TraceValidatorAgent:
     ) -> tuple[ValidationStatus, list[str]]:
         """Determine overall validation status and update flags if blocked."""
         critical_checks = {"chain_completeness", "syntax_validity"}
-        has_critical_failure = any(
-            not c.passed and c.check_name in critical_checks for c in checks
-        )
+        has_critical_failure = any(not c.passed and c.check_name in critical_checks for c in checks)
 
         if has_critical_failure and self.config.require_complete_chain:
             status = ValidationStatus.FAILED
@@ -601,8 +586,8 @@ class TraceValidatorAgent:
     def validate_artifact(
         self,
         artifact: dict[str, Any],
-        mapped_clause: dict[str, Any],
-        parsed_clause: dict[str, Any],
+        mapped_clause: dict[str, Any] | None,
+        parsed_clause: dict[str, Any] | None,
         doc_id: str,
         all_clause_ids: set[str] | None = None,
     ) -> ValidationResult:
@@ -631,18 +616,24 @@ class TraceValidatorAgent:
         # Run validation checks
         self._run_check_with_flag(
             self._checks.check_chain_completeness(artifact, mapped_clause, parsed_clause),
-            "incomplete_chain", checks, review_flags,
+            "incomplete_chain",
+            checks,
+            review_flags,
         )
         self._run_check_with_flag(
             self._checks.check_syntax_validity(artifact),
-            "syntax_error", checks, review_flags,
+            "syntax_error",
+            checks,
+            review_flags,
         )
 
         # Confidence calculation and threshold check
         avg_confidence = self._calculate_trace_confidence(parsed_clause, mapped_clause)
-        checks.append(self._checks.check_confidence_threshold(
-            avg_confidence, self.config.confidence_threshold
-        ))
+        checks.append(
+            self._checks.check_confidence_threshold(
+                avg_confidence, self.config.confidence_threshold
+            )
+        )
 
         if avg_confidence < self.config.review_threshold:
             review_flags.append("low_confidence")
@@ -653,13 +644,17 @@ class TraceValidatorAgent:
         if parsed_clause and artifact:
             self._run_check_with_flag(
                 self._checks.check_semantic_alignment(parsed_clause, artifact),
-                "semantic_drift", checks, review_flags,
+                "semantic_drift",
+                checks,
+                review_flags,
             )
 
         if parsed_clause:
             self._run_check_with_flag(
                 self._checks.check_cross_reference_integrity(parsed_clause, all_clause_ids),
-                "invalid_references", checks, review_flags,
+                "invalid_references",
+                checks,
+                review_flags,
             )
 
         # Determine status
@@ -691,7 +686,7 @@ class TraceValidatorAgent:
             validation_checks=checks,
             lineage=lineage,
             review_flags=review_flags,
-            validated_at=datetime.now(timezone.utc).isoformat(),
+            validated_at=datetime.now(UTC).isoformat(),
         )
 
         logger.info(
@@ -722,7 +717,7 @@ class TraceValidatorAgent:
 
         remainder = clause_id
         if doc_id and clause_id.startswith(f"{doc_id}_"):
-            remainder = clause_id[len(doc_id) + 1:]
+            remainder = clause_id[len(doc_id) + 1 :]
         match = re.match(r"^(.*?_S\d+)_C\d+", remainder)
         return match.group(1) if match else None
 
@@ -746,14 +741,8 @@ class TraceValidatorAgent:
         doc_id = compiled_collection.get("doc_id", "unknown")
 
         # Build lookup maps
-        parsed_by_id = {
-            c["clause_id"]: c
-            for c in parsed_collection.get("clauses", [])
-        }
-        mapped_by_id = {
-            c["clause_id"]: c
-            for c in mapped_collection.get("clauses", [])
-        }
+        parsed_by_id = {c["clause_id"]: c for c in parsed_collection.get("clauses", [])}
+        mapped_by_id = {c["clause_id"]: c for c in mapped_collection.get("clauses", [])}
         all_clause_ids = set(parsed_by_id.keys())
 
         results: list[ValidationResult] = []
@@ -777,14 +766,16 @@ class TraceValidatorAgent:
             "total": len(results),
             "passed": sum(1 for r in results if r.validation_status == ValidationStatus.PASSED),
             "failed": sum(1 for r in results if r.validation_status == ValidationStatus.FAILED),
-            "needs_review": sum(1 for r in results if r.validation_status == ValidationStatus.NEEDS_REVIEW),
+            "needs_review": sum(
+                1 for r in results if r.validation_status == ValidationStatus.NEEDS_REVIEW
+            ),
         }
 
         collection = ValidationResultCollection(
             doc_id=doc_id,
             results=results,
             summary=summary,
-            validation_timestamp=datetime.now(timezone.utc).isoformat(),
+            validation_timestamp=datetime.now(UTC).isoformat(),
         )
 
         logger.info(
@@ -811,7 +802,7 @@ class TraceValidatorAgent:
         doc_id = validation_results.doc_id
         nodes: list[ProvenanceNode] = []
         edges: list[ProvenanceEdge] = []
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         # Create document node
         doc_node = ProvenanceNode(
@@ -840,13 +831,15 @@ class TraceValidatorAgent:
                 seen_sections.add(lineage.section_id)
 
                 # Document -> Section edge
-                edges.append(ProvenanceEdge(
-                    edge_id=f"e:{doc_id}->{lineage.section_id}",
-                    source_id=f"doc:{doc_id}",
-                    target_id=f"section:{lineage.section_id}",
-                    relationship="CONTAINS_SECTION",
-                    properties={},
-                ))
+                edges.append(
+                    ProvenanceEdge(
+                        edge_id=f"e:{doc_id}->{lineage.section_id}",
+                        source_id=f"doc:{doc_id}",
+                        target_id=f"section:{lineage.section_id}",
+                        relationship="CONTAINS_SECTION",
+                        properties={},
+                    )
+                )
 
             # Chunk node
             if lineage.chunk_id and lineage.chunk_id not in seen_chunks:
@@ -861,13 +854,15 @@ class TraceValidatorAgent:
 
                 # Section -> Chunk edge
                 if lineage.section_id:
-                    edges.append(ProvenanceEdge(
-                        edge_id=f"e:{lineage.section_id}->{lineage.chunk_id}",
-                        source_id=f"section:{lineage.section_id}",
-                        target_id=f"chunk:{lineage.chunk_id}",
-                        relationship="CONTAINS_CHUNK",
-                        properties={},
-                    ))
+                    edges.append(
+                        ProvenanceEdge(
+                            edge_id=f"e:{lineage.section_id}->{lineage.chunk_id}",
+                            source_id=f"section:{lineage.section_id}",
+                            target_id=f"chunk:{lineage.chunk_id}",
+                            relationship="CONTAINS_CHUNK",
+                            properties={},
+                        )
+                    )
 
             # Clause node
             clause_node = ProvenanceNode(
@@ -884,13 +879,15 @@ class TraceValidatorAgent:
 
             # Chunk -> Clause edge
             if lineage.chunk_id:
-                edges.append(ProvenanceEdge(
-                    edge_id=f"e:{lineage.chunk_id}->{lineage.clause_id}",
-                    source_id=f"chunk:{lineage.chunk_id}",
-                    target_id=f"clause:{lineage.clause_id}",
-                    relationship="PARSED_TO",
-                    properties={},
-                ))
+                edges.append(
+                    ProvenanceEdge(
+                        edge_id=f"e:{lineage.chunk_id}->{lineage.clause_id}",
+                        source_id=f"chunk:{lineage.chunk_id}",
+                        target_id=f"clause:{lineage.clause_id}",
+                        relationship="PARSED_TO",
+                        properties={},
+                    )
+                )
 
             # Artifact node
             artifact_node = ProvenanceNode(
@@ -906,16 +903,18 @@ class TraceValidatorAgent:
             nodes.append(artifact_node)
 
             # Clause -> Artifact edge
-            edges.append(ProvenanceEdge(
-                edge_id=f"e:{lineage.clause_id}->{lineage.artifact_id}",
-                source_id=f"clause:{lineage.clause_id}",
-                target_id=f"artifact:{lineage.artifact_id}",
-                relationship="COMPILED_TO",
-                properties={
-                    "confidence": result.confidence_score,
-                    "validated": result.validation_status == ValidationStatus.PASSED,
-                },
-            ))
+            edges.append(
+                ProvenanceEdge(
+                    edge_id=f"e:{lineage.clause_id}->{lineage.artifact_id}",
+                    source_id=f"clause:{lineage.clause_id}",
+                    target_id=f"artifact:{lineage.artifact_id}",
+                    relationship="COMPILED_TO",
+                    properties={
+                        "confidence": result.confidence_score,
+                        "validated": result.validation_status == ValidationStatus.PASSED,
+                    },
+                )
+            )
 
         graph = ProvenanceGraph(
             graph_id=f"graph:{doc_id}:{uuid.uuid4().hex[:8]}",
@@ -1051,7 +1050,9 @@ class TraceValidatorAgent:
 
         # Add edges
         for edge in graph.edges:
-            lines.append(f'  "{edge.source_id}" -> "{edge.target_id}" [label="{edge.relationship}"];')
+            lines.append(
+                f'  "{edge.source_id}" -> "{edge.target_id}" [label="{edge.relationship}"];'
+            )
 
         lines.append("}")
         return "\n".join(lines)
@@ -1071,9 +1072,7 @@ def main() -> None:
 
     configure_cli_logging()
 
-    parser = argparse.ArgumentParser(
-        description="AegisLang Trace Validator - L5 Validation Layer"
-    )
+    parser = argparse.ArgumentParser(description="AegisLang Trace Validator - L5 Validation Layer")
     parser.add_argument(
         "--compiled",
         required=True,
@@ -1090,7 +1089,8 @@ def main() -> None:
         help="Parsed clauses JSON (from L2 parser)",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         help="Output file (default: stdout)",
     )
     parser.add_argument(
@@ -1144,9 +1144,7 @@ def main() -> None:
     agent = TraceValidatorAgent(config=config)
 
     # Validate
-    results = agent.validate_compiled_collection(
-        compiled_data, mapped_data, parsed_data
-    )
+    results = agent.validate_compiled_collection(compiled_data, mapped_data, parsed_data)
 
     # Output results
     output_json = results.model_dump_json(indent=2)
@@ -1169,7 +1167,7 @@ def main() -> None:
             print(f"Graph DOT written to: {args.graph_dot}", file=sys.stderr)
 
     # Print summary
-    print(f"\nValidation Summary:", file=sys.stderr)
+    print("\nValidation Summary:", file=sys.stderr)
     for key, value in results.summary.items():
         print(f"  {key}: {value}", file=sys.stderr)
 

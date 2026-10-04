@@ -16,21 +16,21 @@ import random
 import statistics
 import sys
 import time
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional
-from concurrent.futures import ThreadPoolExecutor
-import urllib.request
 import urllib.error
 import urllib.parse
-
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 
 # =============================================================================
 # Configuration
 # =============================================================================
 
+
 @dataclass
 class StressConfig:
     """Stress test configuration."""
+
     base_url: str = "http://localhost:8080"
     num_users: int = 10
     duration_seconds: int = 60
@@ -42,26 +42,28 @@ class StressConfig:
 @dataclass
 class RequestResult:
     """Result of a single request."""
+
     endpoint: str
     method: str
     status_code: int
     response_time: float
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
     timestamp: float = field(default_factory=time.time)
 
 
 @dataclass
 class StressResults:
     """Aggregated stress test results."""
+
     total_requests: int = 0
     successful_requests: int = 0
     failed_requests: int = 0
-    response_times: List[float] = field(default_factory=list)
-    requests_by_endpoint: Dict[str, List[RequestResult]] = field(default_factory=dict)
-    errors: List[str] = field(default_factory=list)
-    start_time: Optional[float] = None
-    end_time: Optional[float] = None
+    response_times: list[float] = field(default_factory=list)
+    requests_by_endpoint: dict[str, list[RequestResult]] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
+    start_time: float | None = None
+    end_time: float | None = None
 
 
 # =============================================================================
@@ -94,11 +96,12 @@ Staff shall not discriminate.
 # HTTP Client
 # =============================================================================
 
+
 def make_request(
     url: str,
     method: str = "GET",
-    data: Optional[bytes] = None,
-    headers: Optional[Dict[str, str]] = None,
+    data: bytes | None = None,
+    headers: dict[str, str] | None = None,
     timeout: float = 30,
 ) -> tuple:
     """Make an HTTP request and return (status_code, response_body, elapsed_time)."""
@@ -128,6 +131,7 @@ def make_request(
 # =============================================================================
 # Test Scenarios
 # =============================================================================
+
 
 def run_health_check(config: StressConfig) -> RequestResult:
     """Test health check endpoint."""
@@ -172,15 +176,13 @@ def run_ingest_document(config: StressConfig) -> RequestResult:
         f"Content-Type: text/markdown\r\n\r\n"
         f"{policy}\r\n"
         f"--{boundary}--\r\n"
-    ).encode("utf-8")
+    ).encode()
 
     headers = {
         "Content-Type": f"multipart/form-data; boundary={boundary}",
     }
 
-    status, response, elapsed = make_request(
-        url, method="POST", data=body, headers=headers
-    )
+    status, response, elapsed = make_request(url, method="POST", data=body, headers=headers)
 
     success = status == 200
     if success:
@@ -203,6 +205,7 @@ def run_ingest_document(config: StressConfig) -> RequestResult:
 # =============================================================================
 # Virtual User
 # =============================================================================
+
 
 class VirtualUser:
     """Simulated user that makes requests."""
@@ -247,9 +250,7 @@ class VirtualUser:
                 self._record_error(str(e))
 
             # Think time
-            think_time = random.uniform(
-                self.config.think_time_min, self.config.think_time_max
-            )
+            think_time = random.uniform(self.config.think_time_min, self.config.think_time_max)
             time.sleep(think_time)
 
     def stop(self):
@@ -282,6 +283,7 @@ class VirtualUser:
 # =============================================================================
 # Test Runner
 # =============================================================================
+
 
 def run_stress_test(config: StressConfig) -> StressResults:
     """Run the stress test."""
@@ -363,7 +365,7 @@ def print_results(results: StressResults):
         print(f"Requests/sec: {rps:.2f}")
 
     if results.response_times:
-        print(f"\nResponse Times:")
+        print("\nResponse Times:")
         print(f"  Min: {min(results.response_times)*1000:.2f}ms")
         print(f"  Max: {max(results.response_times)*1000:.2f}ms")
         print(f"  Avg: {statistics.mean(results.response_times)*1000:.2f}ms")
@@ -382,7 +384,7 @@ def print_results(results: StressResults):
         print(f"  P95: {sorted_times[p95_idx]*1000:.2f}ms")
         print(f"  P99: {sorted_times[p99_idx]*1000:.2f}ms")
 
-    print(f"\nResults by Endpoint:")
+    print("\nResults by Endpoint:")
     for endpoint, requests in results.requests_by_endpoint.items():
         success_count = sum(1 for r in requests if r.success)
         times = [r.response_time for r in requests]
@@ -395,7 +397,7 @@ def print_results(results: StressResults):
 
     if results.errors:
         unique_errors = set(results.errors[:10])  # First 10 unique errors
-        print(f"\nErrors (first 10 unique):")
+        print("\nErrors (first 10 unique):")
         for error in unique_errors:
             print(f"  - {error}")
 
@@ -446,11 +448,10 @@ def export_results(results: StressResults, filename: str):
 # Main
 # =============================================================================
 
+
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="AegisLang Stress Testing Script"
-    )
+    parser = argparse.ArgumentParser(description="AegisLang Stress Testing Script")
     parser.add_argument(
         "--url",
         default="http://localhost:8080",

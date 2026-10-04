@@ -5,19 +5,19 @@ Unit tests for L2 Parsing Layer (policy_parser_agent.py)
 import pytest
 
 from aegislang.agents.policy_parser_agent import (
-    PolicyParserAgent,
+    ActionPhrase,
+    ActorEntity,
+    ClauseType,
+    MockLLMClient,
     ParsedClause,
     ParsedClauseCollection,
-    ClauseType,
-    ActorEntity,
-    ActionPhrase,
-    MockLLMClient,
+    PolicyParserAgent,
 )
-
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def mock_parser():
@@ -72,15 +72,14 @@ def sample_ingested_document():
 # MockLLMClient Tests
 # =============================================================================
 
+
 class TestMockLLMClient:
     """Tests for MockLLMClient."""
 
     def test_parse_obligation(self):
         """Test parsing obligation clause."""
         client = MockLLMClient()
-        result = client.parse_clause(
-            "Financial institutions must verify customer identity."
-        )
+        result = client.parse_clause("Financial institutions must verify customer identity.")
 
         assert result["type"] == "obligation"
         assert "actor" in result
@@ -99,36 +98,28 @@ class TestMockLLMClient:
     def test_parse_permission(self):
         """Test parsing permission clause."""
         client = MockLLMClient()
-        result = client.parse_clause(
-            "Customers may request data deletion at any time."
-        )
+        result = client.parse_clause("Customers may request data deletion at any time.")
 
         assert result["type"] == "permission"
 
     def test_parse_conditional(self):
         """Test parsing conditional clause."""
         client = MockLLMClient()
-        result = client.parse_clause(
-            "If the amount exceeds $10,000, a report must be filed."
-        )
+        result = client.parse_clause("If the amount exceeds $10,000, a report must be filed.")
 
         assert result["type"] == "conditional"
 
     def test_parse_definition(self):
         """Test parsing definition clause."""
         client = MockLLMClient()
-        result = client.parse_clause(
-            "Customer means any individual who holds an account."
-        )
+        result = client.parse_clause("Customer means any individual who holds an account.")
 
         assert result["type"] == "definition"
 
     def test_extract_actor(self):
         """Test actor extraction."""
         client = MockLLMClient()
-        result = client.parse_clause(
-            "Financial institutions must report suspicious activity."
-        )
+        result = client.parse_clause("Financial institutions must report suspicious activity.")
 
         assert result["actor"]["entity"]
         assert isinstance(result["actor"]["entity"], str)
@@ -136,18 +127,14 @@ class TestMockLLMClient:
     def test_extract_condition(self):
         """Test condition extraction."""
         client = MockLLMClient()
-        result = client.parse_clause(
-            "Before account creation, identity must be verified."
-        )
+        result = client.parse_clause("Before account creation, identity must be verified.")
 
         assert result.get("condition") is not None or result["type"] == "obligation"
 
     def test_extract_temporal(self):
         """Test temporal scope extraction."""
         client = MockLLMClient()
-        result = client.parse_clause(
-            "Records must be maintained for at least 5 years."
-        )
+        result = client.parse_clause("Records must be maintained for at least 5 years.")
 
         temporal = result.get("temporal_scope")
         if temporal:
@@ -157,6 +144,7 @@ class TestMockLLMClient:
 # =============================================================================
 # PolicyParserAgent Tests
 # =============================================================================
+
 
 class TestPolicyParserAgent:
     """Tests for PolicyParserAgent."""
@@ -186,31 +174,21 @@ class TestPolicyParserAgent:
 
     def test_parse_clause_type_detection(self, mock_parser):
         """Test clause type detection."""
-        obligation = mock_parser.parse_clause(
-            "Banks must report transactions.",
-            "CL001", "C001"
-        )
+        obligation = mock_parser.parse_clause("Banks must report transactions.", "CL001", "C001")
         assert obligation.type == ClauseType.OBLIGATION
 
-        prohibition = mock_parser.parse_clause(
-            "Staff shall not share passwords.",
-            "CL002", "C002"
-        )
+        prohibition = mock_parser.parse_clause("Staff shall not share passwords.", "CL002", "C002")
         assert prohibition.type == ClauseType.PROHIBITION
 
     def test_parse_clause_has_confidence(self, mock_parser, sample_obligation_clause):
         """Test that parsed clause has confidence score."""
-        result = mock_parser.parse_clause(
-            sample_obligation_clause, "CL001", "C001"
-        )
+        result = mock_parser.parse_clause(sample_obligation_clause, "CL001", "C001")
 
         assert 0.0 <= result.confidence <= 1.0
 
     def test_parse_clause_has_actor(self, mock_parser, sample_obligation_clause):
         """Test that parsed clause has actor."""
-        result = mock_parser.parse_clause(
-            sample_obligation_clause, "CL001", "C001"
-        )
+        result = mock_parser.parse_clause(sample_obligation_clause, "CL001", "C001")
 
         assert result.actor is not None
         assert isinstance(result.actor, ActorEntity)
@@ -218,9 +196,7 @@ class TestPolicyParserAgent:
 
     def test_parse_clause_has_action(self, mock_parser, sample_obligation_clause):
         """Test that parsed clause has action."""
-        result = mock_parser.parse_clause(
-            sample_obligation_clause, "CL001", "C001"
-        )
+        result = mock_parser.parse_clause(sample_obligation_clause, "CL001", "C001")
 
         assert result.action is not None
         assert isinstance(result.action, ActionPhrase)
@@ -265,6 +241,7 @@ class TestPolicyParserAgent:
 # =============================================================================
 # ParsedClause Model Tests
 # =============================================================================
+
 
 class TestParsedClauseModel:
     """Tests for ParsedClause Pydantic model."""
@@ -341,6 +318,7 @@ class TestParsedClauseModel:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestParserIntegration:
     """Integration tests for the parser."""

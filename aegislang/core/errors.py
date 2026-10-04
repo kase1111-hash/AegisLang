@@ -8,14 +8,17 @@ from __future__ import annotations
 
 import os
 import traceback
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import structlog
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request  # noqa: TC002 - used in handler signatures
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 logger = structlog.get_logger(__name__)
 
@@ -170,7 +173,9 @@ def is_production() -> bool:
     return env in ("production", "prod")
 
 
-def sanitize_error_message(error: Exception, include_details: bool = False) -> str:
+def sanitize_error_message(  # noqa: PLR0911 - one return per exception category
+    error: Exception, include_details: bool = False
+) -> str:
     """
     Sanitize error message for external consumption.
 
@@ -181,16 +186,15 @@ def sanitize_error_message(error: Exception, include_details: bool = False) -> s
         # Map exception types to user-friendly messages
         if isinstance(error, (FileNotFoundError, KeyError)):
             return "The requested resource was not found"
-        elif isinstance(error, (ValueError, TypeError)):
+        if isinstance(error, (ValueError, TypeError)):
             return "Invalid input provided"
-        elif isinstance(error, PermissionError):
+        if isinstance(error, PermissionError):
             return "Access denied"
-        elif isinstance(error, TimeoutError):
+        if isinstance(error, TimeoutError):
             return "The operation timed out"
-        elif isinstance(error, ConnectionError):
+        if isinstance(error, ConnectionError):
             return "Service temporarily unavailable"
-        else:
-            return "An internal error occurred"
+        return "An internal error occurred"
 
     return str(error)
 
@@ -204,16 +208,10 @@ def create_error_response(
     headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """Create a standardized error response."""
-    if isinstance(error, Exception):
-        message = sanitize_error_message(error)
-    else:
-        message = error
+    message = sanitize_error_message(error) if isinstance(error, Exception) else error
 
     # Don't include details in production unless explicitly set
-    if is_production() and details is None:
-        response_details = None
-    else:
-        response_details = details
+    response_details = None if is_production() and details is None else details
 
     content = ErrorResponse(
         error=message,
@@ -261,9 +259,7 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(StarletteHTTPException)
-    async def http_exception_handler(
-        request: Request, exc: StarletteHTTPException
-    ) -> JSONResponse:
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         """Handle HTTP exceptions (FastAPI and Starlette, e.g. 404/405 routing errors)."""
         request_id = getattr(request.state, "request_id", None)
 
@@ -348,13 +344,18 @@ class ErrorHandlingContext:
         self.reraise = reraise
         self.default_result = default_result
         self._result = default_result
-        self._error: Exception | None = None
+        self._error: BaseException | None = None
 
-    async def __aenter__(self) -> "ErrorHandlingContext":
+    async def __aenter__(self) -> ErrorHandlingContext:
         self.logger.debug(f"starting_{self.operation.replace(' ', '_')}")
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
         if exc_val is not None:
             self._error = exc_val
             self.logger.error(
@@ -378,7 +379,7 @@ class ErrorHandlingContext:
         return self._result
 
     @property
-    def error(self) -> Exception | None:
+    def error(self) -> BaseException | None:
         """Get the error if one occurred."""
         return self._error
 
