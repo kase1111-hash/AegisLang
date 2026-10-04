@@ -6,10 +6,10 @@ Tests the full flow from ingestion through validation.
 
 import pytest
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def sample_policy_document(tmp_path):
@@ -63,6 +63,7 @@ if the transaction amount is below $1,000.
 # =============================================================================
 # End-to-End Pipeline Tests
 # =============================================================================
+
 
 class TestEndToEndPipeline:
     """End-to-end tests for the full pipeline."""
@@ -124,12 +125,12 @@ class TestEndToEndPipeline:
     def test_ingest_to_compile(self, sample_policy_document):
         """Test ingestion through compilation."""
         from aegislang.agents.aegis_ingestor import AegisIngestor
+        from aegislang.agents.compiler_agent import ArtifactFormat, CompilerAgent
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
         from aegislang.agents.schema_mapping_agent import (
             SchemaMappingAgent,
             create_default_registry,
         )
-        from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
 
         # Ingest
         ingestor = AegisIngestor()
@@ -164,12 +165,12 @@ class TestEndToEndPipeline:
     def test_full_pipeline_with_validation(self, sample_policy_document):
         """Test complete pipeline including validation."""
         from aegislang.agents.aegis_ingestor import AegisIngestor
+        from aegislang.agents.compiler_agent import ArtifactFormat, CompilerAgent
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
         from aegislang.agents.schema_mapping_agent import (
             SchemaMappingAgent,
             create_default_registry,
         )
-        from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
         from aegislang.agents.trace_validator_agent import TraceValidatorAgent
 
         # Ingest
@@ -209,12 +210,12 @@ class TestEndToEndPipeline:
     def test_provenance_graph_generation(self, sample_policy_document):
         """Test provenance graph generation."""
         from aegislang.agents.aegis_ingestor import AegisIngestor
+        from aegislang.agents.compiler_agent import ArtifactFormat, CompilerAgent
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
         from aegislang.agents.schema_mapping_agent import (
             SchemaMappingAgent,
             create_default_registry,
         )
-        from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
         from aegislang.agents.trace_validator_agent import TraceValidatorAgent
 
         # Run pipeline
@@ -255,12 +256,12 @@ class TestEndToEndPipeline:
     def test_graph_export_formats(self, sample_policy_document):
         """Test graph export to different formats."""
         from aegislang.agents.aegis_ingestor import AegisIngestor
+        from aegislang.agents.compiler_agent import ArtifactFormat, CompilerAgent
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
         from aegislang.agents.schema_mapping_agent import (
             SchemaMappingAgent,
             create_default_registry,
         )
-        from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
         from aegislang.agents.trace_validator_agent import TraceValidatorAgent
 
         # Run pipeline (abbreviated)
@@ -303,12 +304,13 @@ class TestEndToEndPipeline:
 # Clause Type Detection Tests
 # =============================================================================
 
+
 class TestClauseTypeDetection:
     """Tests for clause type detection across the pipeline."""
 
     def test_obligation_detection(self):
         """Test detection of obligation clauses."""
-        from aegislang.agents.policy_parser_agent import PolicyParserAgent, ClauseType
+        from aegislang.agents.policy_parser_agent import ClauseType, PolicyParserAgent
 
         parser = PolicyParserAgent(use_mock=True)
 
@@ -324,7 +326,7 @@ class TestClauseTypeDetection:
 
     def test_prohibition_detection(self):
         """Test detection of prohibition clauses."""
-        from aegislang.agents.policy_parser_agent import PolicyParserAgent, ClauseType
+        from aegislang.agents.policy_parser_agent import ClauseType, PolicyParserAgent
 
         parser = PolicyParserAgent(use_mock=True)
 
@@ -340,7 +342,7 @@ class TestClauseTypeDetection:
 
     def test_permission_detection(self):
         """Test detection of permission clauses."""
-        from aegislang.agents.policy_parser_agent import PolicyParserAgent, ClauseType
+        from aegislang.agents.policy_parser_agent import ClauseType, PolicyParserAgent
 
         parser = PolicyParserAgent(use_mock=True)
 
@@ -358,18 +360,19 @@ class TestClauseTypeDetection:
 # Artifact Generation Tests
 # =============================================================================
 
+
 class TestArtifactGeneration:
     """Tests for artifact generation."""
 
     def test_yaml_artifact_structure(self, sample_policy_document):
         """Test YAML artifact structure."""
         from aegislang.agents.aegis_ingestor import AegisIngestor
+        from aegislang.agents.compiler_agent import ArtifactFormat, CompilerAgent
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
         from aegislang.agents.schema_mapping_agent import (
             SchemaMappingAgent,
             create_default_registry,
         )
-        from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
 
         # Run pipeline
         ingestor = AegisIngestor()
@@ -401,12 +404,12 @@ class TestArtifactGeneration:
     def test_sql_artifact_structure(self, sample_policy_document):
         """Test SQL artifact structure."""
         from aegislang.agents.aegis_ingestor import AegisIngestor
+        from aegislang.agents.compiler_agent import ArtifactFormat, CompilerAgent
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
         from aegislang.agents.schema_mapping_agent import (
             SchemaMappingAgent,
             create_default_registry,
         )
-        from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
 
         # Run pipeline
         ingestor = AegisIngestor()
@@ -432,15 +435,25 @@ class TestArtifactGeneration:
             # Should contain SQL-like content
             content_upper = artifact.content.upper()
             # Check for common SQL elements (constraints, comments, or table refs)
-            assert any(kw in content_upper for kw in [
-                "ALTER TABLE", "CREATE", "CONSTRAINT", "CHECK",
-                "COMMENT", "COMPLIANCE", "--", "CLAUSE"
-            ])
+            assert any(
+                kw in content_upper
+                for kw in [
+                    "ALTER TABLE",
+                    "CREATE",
+                    "CONSTRAINT",
+                    "CHECK",
+                    "COMMENT",
+                    "COMPLIANCE",
+                    "--",
+                    "CLAUSE",
+                ]
+            )
 
 
 # =============================================================================
 # Validation Tests
 # =============================================================================
+
 
 class TestValidationIntegration:
     """Integration tests for validation."""
@@ -448,12 +461,12 @@ class TestValidationIntegration:
     def test_validation_summary(self, sample_policy_document):
         """Test validation summary generation."""
         from aegislang.agents.aegis_ingestor import AegisIngestor
+        from aegislang.agents.compiler_agent import ArtifactFormat, CompilerAgent
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
         from aegislang.agents.schema_mapping_agent import (
             SchemaMappingAgent,
             create_default_registry,
         )
-        from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
         from aegislang.agents.trace_validator_agent import TraceValidatorAgent
 
         # Run pipeline

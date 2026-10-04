@@ -19,6 +19,7 @@ project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
 from aegislang.agents.aegis_ingestor import AegisIngestor
+from aegislang.agents.compiler_agent import ArtifactFormat, CompilerAgent
 from aegislang.agents.policy_parser_agent import PolicyParserAgent
 from aegislang.agents.schema_mapping_agent import (
     SchemaField,
@@ -28,13 +29,12 @@ from aegislang.agents.schema_mapping_agent import (
     SchemaType,
     TargetSchema,
 )
-from aegislang.agents.compiler_agent import ArtifactFormat, CompilerAgent
 from aegislang.agents.trace_validator_agent import TraceValidatorAgent
-
 
 # =============================================================================
 # AML Target Schema (realistic financial services database)
 # =============================================================================
+
 
 def create_aml_registry() -> SchemaRegistry:
     """Build a realistic AML/KYC database schema for entity mapping."""
@@ -66,8 +66,11 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="risk_level",
                                 field_type="VARCHAR(20)",
                                 semantic_labels=[
-                                    "risk", "risk level", "risk rating",
-                                    "risk profile", "risk category",
+                                    "risk",
+                                    "risk level",
+                                    "risk rating",
+                                    "risk profile",
+                                    "risk category",
                                 ],
                                 description="Customer risk rating (low/medium/high)",
                             ),
@@ -75,8 +78,13 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="identity_verified",
                                 field_type="BOOLEAN",
                                 semantic_labels=[
-                                    "identity", "verification", "kyc", "verified",
-                                    "identity verified", "CIP", "identification",
+                                    "identity",
+                                    "verification",
+                                    "kyc",
+                                    "verified",
+                                    "identity verified",
+                                    "CIP",
+                                    "identification",
                                 ],
                                 description="Whether CIP verification is complete",
                             ),
@@ -84,8 +92,10 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="verification_date",
                                 field_type="TIMESTAMP",
                                 semantic_labels=[
-                                    "verification date", "verified date",
-                                    "date verified", "CIP date",
+                                    "verification date",
+                                    "verified date",
+                                    "date verified",
+                                    "CIP date",
                                 ],
                                 description="Date identity was verified",
                             ),
@@ -93,8 +103,10 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="beneficial_owner",
                                 field_type="VARCHAR(255)",
                                 semantic_labels=[
-                                    "beneficial owner", "ultimate beneficial owner",
-                                    "UBO", "ownership",
+                                    "beneficial owner",
+                                    "ultimate beneficial owner",
+                                    "UBO",
+                                    "ownership",
                                 ],
                                 description="Beneficial owner of legal entity",
                             ),
@@ -102,7 +114,8 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="pep_status",
                                 field_type="BOOLEAN",
                                 semantic_labels=[
-                                    "politically exposed", "PEP",
+                                    "politically exposed",
+                                    "PEP",
                                     "politically exposed person",
                                 ],
                                 description="Politically exposed person flag",
@@ -135,7 +148,9 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="opened_date",
                                 field_type="TIMESTAMP",
                                 semantic_labels=[
-                                    "opened", "account opening", "date opened",
+                                    "opened",
+                                    "account opening",
+                                    "date opened",
                                 ],
                                 description="Account opening date",
                             ),
@@ -143,7 +158,9 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="status",
                                 field_type="VARCHAR(20)",
                                 semantic_labels=[
-                                    "status", "account status", "active",
+                                    "status",
+                                    "account status",
+                                    "active",
                                 ],
                                 description="Account status (active/closed/frozen)",
                             ),
@@ -169,8 +186,12 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="amount",
                                 field_type="DECIMAL(18,2)",
                                 semantic_labels=[
-                                    "amount", "value", "sum", "total",
-                                    "transaction amount", "threshold",
+                                    "amount",
+                                    "value",
+                                    "sum",
+                                    "total",
+                                    "transaction amount",
+                                    "threshold",
                                 ],
                                 description="Transaction amount",
                             ),
@@ -178,8 +199,10 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="type",
                                 field_type="VARCHAR(50)",
                                 semantic_labels=[
-                                    "type", "transaction type",
-                                    "transfer type", "category",
+                                    "type",
+                                    "transaction type",
+                                    "transfer type",
+                                    "category",
                                 ],
                                 description="Transaction type",
                             ),
@@ -187,7 +210,9 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="timestamp",
                                 field_type="TIMESTAMP",
                                 semantic_labels=[
-                                    "timestamp", "date", "time",
+                                    "timestamp",
+                                    "date",
+                                    "time",
                                     "transaction date",
                                 ],
                                 description="Transaction timestamp",
@@ -196,8 +221,12 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="suspicious_flag",
                                 field_type="BOOLEAN",
                                 semantic_labels=[
-                                    "suspicious", "flagged", "suspicious activity",
-                                    "SAR", "reported", "alert",
+                                    "suspicious",
+                                    "flagged",
+                                    "suspicious activity",
+                                    "SAR",
+                                    "reported",
+                                    "alert",
                                 ],
                                 description="Suspicious activity flag",
                             ),
@@ -211,7 +240,8 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="id",
                                 field_type="UUID",
                                 semantic_labels=[
-                                    "SAR", "suspicious activity report",
+                                    "SAR",
+                                    "suspicious activity report",
                                     "report",
                                 ],
                                 description="Primary key",
@@ -226,7 +256,9 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="filed_date",
                                 field_type="TIMESTAMP",
                                 semantic_labels=[
-                                    "filed", "filing date", "report date",
+                                    "filed",
+                                    "filing date",
+                                    "report date",
                                 ],
                                 description="Date SAR was filed",
                             ),
@@ -234,7 +266,9 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="fiu_reference",
                                 field_type="VARCHAR(100)",
                                 semantic_labels=[
-                                    "FIU", "FinCEN", "reference number",
+                                    "FIU",
+                                    "FinCEN",
+                                    "reference number",
                                 ],
                                 description="Financial Intelligence Unit reference",
                             ),
@@ -266,7 +300,9 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="action",
                                 field_type="VARCHAR(100)",
                                 semantic_labels=[
-                                    "action", "event", "activity",
+                                    "action",
+                                    "event",
+                                    "activity",
                                     "compliance action",
                                 ],
                                 description="Action performed",
@@ -281,8 +317,12 @@ def create_aml_registry() -> SchemaRegistry:
                                 field_name="actor",
                                 field_type="VARCHAR(255)",
                                 semantic_labels=[
-                                    "actor", "user", "staff", "employee",
-                                    "officer", "personnel",
+                                    "actor",
+                                    "user",
+                                    "staff",
+                                    "employee",
+                                    "officer",
+                                    "personnel",
                                 ],
                                 description="Who performed the action",
                             ),
@@ -308,7 +348,8 @@ def create_aml_registry() -> SchemaRegistry:
 # Pipeline Runner
 # =============================================================================
 
-def run_pipeline(
+
+def run_pipeline(  # noqa: PLR0915 - linear demo script, one step per stage
     doc_path: Path,
     registry: SchemaRegistry,
     output_dir: Path,
@@ -324,8 +365,10 @@ def run_pipeline(
     ingestor = AegisIngestor()
     ingested = ingestor.ingest(doc_path)
     ingested_data = ingested.model_dump(mode="json")
-    print(f"         Sections: {len(ingested.sections)}, "
-          f"Chunks: {sum(len(s.text_chunks) for s in ingested.sections)}")
+    print(
+        f"         Sections: {len(ingested.sections)}, "
+        f"Chunks: {sum(len(s.text_chunks) for s in ingested.sections)}"
+    )
 
     # Step 2: Parse
     print("  [2/5] Parsing clauses (mock LLM)...")
@@ -346,9 +389,13 @@ def run_pipeline(
     mapped_data = mapped.model_dump(mode="json")
     mapped_count = sum(1 for c in mapped.clauses if c.mapping_status.value == "complete")
     partial_count = sum(1 for c in mapped.clauses if c.mapping_status.value == "partial")
-    unmapped_count = sum(1 for c in mapped.clauses if c.mapping_status.value in ("failed", "needs_review"))
-    print(f"         Fully mapped: {mapped_count}, "
-          f"Partial: {partial_count}, Unmapped: {unmapped_count}")
+    unmapped_count = sum(
+        1 for c in mapped.clauses if c.mapping_status.value in ("failed", "needs_review")
+    )
+    print(
+        f"         Fully mapped: {mapped_count}, "
+        f"Partial: {partial_count}, Unmapped: {unmapped_count}"
+    )
 
     # Step 4: Compile
     print("  [4/5] Compiling artifacts (YAML, SQL, Python)...")
@@ -365,9 +412,7 @@ def run_pipeline(
     # Step 5: Validate
     print("  [5/5] Validating traceability...")
     validator = TraceValidatorAgent()
-    validated = validator.validate_compiled_collection(
-        compiled_data, mapped_data, parsed_data
-    )
+    validated = validator.validate_compiled_collection(compiled_data, mapped_data, parsed_data)
     print(f"         Summary: {validated.summary}")
 
     # Save outputs, replacing artifacts from previous runs
@@ -430,7 +475,7 @@ def main():
         print(f"No .md files found in {regulations_dir}")
         sys.exit(1)
 
-    print(f"AegisLang AML/KYC Pipeline Runner")
+    print("AegisLang AML/KYC Pipeline Runner")
     print(f"Documents: {len(docs)}")
     print(f"Output: {output_dir}")
 
@@ -456,8 +501,10 @@ def main():
     print(f"Documents processed: {len(all_results)}")
     print(f"Total clauses extracted: {total_clauses}")
     print(f"Total artifacts generated: {total_artifacts}")
-    print(f"Mapping: {total_mapped} fully mapped, "
-          f"{total_partial} partial, {total_unmapped} unmapped")
+    print(
+        f"Mapping: {total_mapped} fully mapped, "
+        f"{total_partial} partial, {total_unmapped} unmapped"
+    )
 
     mapping_success = (total_mapped + total_partial) / max(total_clauses, 1) * 100
     print(f"Mapping success rate: {mapping_success:.1f}%")

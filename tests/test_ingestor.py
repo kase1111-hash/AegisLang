@@ -6,16 +6,16 @@ import pytest
 
 from aegislang.agents.aegis_ingestor import (
     AegisIngestor,
-    SemanticChunker,
     ChunkingConfig,
     IngestedDocument,
     MarkdownParser,
+    SemanticChunker,
 )
-
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def chunking_config():
@@ -76,6 +76,7 @@ Violations will result in penalties as specified in the enforcement section.
 # SemanticChunker Tests
 # =============================================================================
 
+
 class TestSemanticChunker:
     """Tests for SemanticChunker class."""
 
@@ -88,12 +89,15 @@ class TestSemanticChunker:
         assert token_count > 0
         assert token_count < 20  # Simple sentence should be small
 
-    @pytest.mark.parametrize("text,expected_chunks", [
-        ("", 0),
-        ("   \n\n   ", 0),
-        ("Hello.", 1),
-        ("This is a single paragraph of text for testing.", 1),
-    ])
+    @pytest.mark.parametrize(
+        "text,expected_chunks",
+        [
+            ("", 0),
+            ("   \n\n   ", 0),
+            ("Hello.", 1),
+            ("This is a single paragraph of text for testing.", 1),
+        ],
+    )
     def test_chunk_text_edge_cases(self, chunker, text, expected_chunks):
         """Test chunking with various edge case inputs."""
         chunks = chunker.chunk_text(text, "EDGE_S001")
@@ -159,6 +163,7 @@ Third paragraph concluding the text."""
 # MarkdownParser Tests
 # =============================================================================
 
+
 class TestMarkdownParser:
     """Tests for MarkdownParser class."""
 
@@ -177,7 +182,9 @@ class TestMarkdownParser:
 
         # Check section titles are extracted
         section_titles = [s.section_title for s in sections]
-        assert "Sample Policy Document" in section_titles or any("Introduction" in t for t in section_titles)
+        assert "Sample Policy Document" in section_titles or any(
+            "Introduction" in t for t in section_titles
+        )
 
     def test_hierarchy_levels(self, sample_markdown_file):
         """Test that hierarchy levels are correctly detected."""
@@ -201,6 +208,7 @@ class TestMarkdownParser:
 # =============================================================================
 # AegisIngestor Tests
 # =============================================================================
+
 
 class TestAegisIngestor:
     """Tests for AegisIngestor class."""
@@ -242,6 +250,7 @@ class TestAegisIngestor:
 
         assert isinstance(result, str)
         import json
+
         parsed = json.loads(result)
         assert "doc_id" in parsed
         assert "sections" in parsed
@@ -268,6 +277,7 @@ class TestAegisIngestor:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestIngestorIntegration:
     """Integration tests for the ingestor."""

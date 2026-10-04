@@ -51,7 +51,7 @@ install: ## Install production dependencies
 
 dev-install: install ## Install development dependencies
 	@echo "$(BLUE)Installing development dependencies...$(NC)"
-	$(PIP) install pytest pytest-asyncio pytest-cov black ruff mypy httpx
+	$(PIP) install pytest pytest-asyncio pytest-cov black ruff mypy types-PyYAML httpx
 	@echo "$(GREEN)Development installation complete!$(NC)"
 
 # =============================================================================
@@ -104,7 +104,7 @@ format-check: ## Check code formatting
 
 type-check: ## Run type checking with mypy
 	@echo "$(BLUE)Running type checker...$(NC)"
-	mypy $(APP_NAME)/ --ignore-missing-imports
+	$(PYTHON) -m mypy $(APP_NAME)/
 	@echo "$(GREEN)Type checking complete!$(NC)"
 
 security-check: ## Run security checks (bandit + safety)

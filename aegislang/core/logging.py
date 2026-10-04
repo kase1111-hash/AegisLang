@@ -22,15 +22,17 @@ Usage:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import sys
 import traceback
+from collections.abc import Callable, MutableMapping
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 import structlog
 from pydantic import BaseModel, Field
@@ -158,7 +160,8 @@ class SentryIntegration:
                 if user_id := user_id_var.get():
                     scope.set_user({"id": user_id})
 
-                return cls._sentry_sdk.capture_exception(exception)
+                event_id: str | None = cls._sentry_sdk.capture_exception(exception)
+                return event_id
 
         except Exception:
             return None
@@ -180,7 +183,8 @@ class SentryIntegration:
                     for key, value in context.items():
                         scope.set_extra(key, value)
 
-                return cls._sentry_sdk.capture_message(message, level=level)
+                event_id: str | None = cls._sentry_sdk.capture_message(message, level=level)
+                return event_id
 
         except Exception:
             return None
@@ -197,23 +201,21 @@ class SentryIntegration:
         if not cls._initialized or cls._sentry_sdk is None:
             return
 
-        try:
+        # Breadcrumbs are best effort; never fail the caller
+        with contextlib.suppress(Exception):
             cls._sentry_sdk.add_breadcrumb(
                 message=message,
                 category=category,
                 level=level,
                 data=data or {},
             )
-        except Exception:  # nosec B110
-            # Breadcrumbs are best effort; never fail the caller
-            pass
 
 
 def add_context_processor(
-    logger: structlog.typing.WrappedLogger,
-    method_name: str,
-    event_dict: dict[str, Any],
-) -> dict[str, Any]:
+    logger: structlog.typing.WrappedLogger,  # noqa: ARG001 - structlog processor signature
+    method_name: str,  # noqa: ARG001
+    event_dict: MutableMapping[str, Any],
+) -> MutableMapping[str, Any]:
     """Add request/user context to log events."""
     if request_id := request_id_var.get():
         event_dict["request_id"] = request_id
@@ -223,10 +225,10 @@ def add_context_processor(
 
 
 def add_error_context_processor(
-    logger: structlog.typing.WrappedLogger,
+    logger: structlog.typing.WrappedLogger,  # noqa: ARG001 - structlog processor signature
     method_name: str,
-    event_dict: dict[str, Any],
-) -> dict[str, Any]:
+    event_dict: MutableMapping[str, Any],
+) -> MutableMapping[str, Any]:
     """Capture errors to Sentry when logging at error level or above."""
     if method_name in ("error", "critical", "exception"):
         exc_info = event_dict.get("exc_info")
@@ -291,13 +293,14 @@ def setup_logging(
     if json_output:
         # JSON output for ELK/production
         shared_processors.append(structlog.processors.format_exc_info)
-        renderer = structlog.processors.JSONRenderer()
+        renderer: structlog.typing.Processor = structlog.processors.JSONRenderer()
     else:
         # Console output for development
         renderer = structlog.dev.ConsoleRenderer(colors=True)
 
     structlog.configure(
-        processors=shared_processors + [
+        processors=[
+            *shared_processors,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),
@@ -314,9 +317,9 @@ def setup_logging(
     )
 
     # Add file handler if specified
-    handlers = [handler]
-    if log_file or os.environ.get("AEGISLANG_LOG_FILE"):
-        file_path = log_file or os.environ.get("AEGISLANG_LOG_FILE")
+    handlers: list[logging.Handler] = [handler]
+    file_path = log_file or os.environ.get("AEGISLANG_LOG_FILE")
+    if file_path:
         file_handler = logging.FileHandler(file_path)
         file_handler.setFormatter(
             structlog.stdlib.ProcessorFormatter(
@@ -354,7 +357,8 @@ def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     Returns:
         Bound structlog logger
     """
-    return structlog.get_logger(name)
+    bound_logger: structlog.stdlib.BoundLogger = structlog.get_logger(name)
+    return bound_logger
 
 
 def log_error(
@@ -385,7 +389,7 @@ def log_error(
         error_id=str(uuid.uuid4()),
         error_type=type(error).__name__,
         error_message=str(error),
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         module=last_frame.filename if last_frame else "unknown",
         function=last_frame.name if last_frame else "unknown",
         line_number=last_frame.lineno if last_frame else None,
@@ -487,14 +491,14 @@ def clear_request_context() -> None:
 
 # Export convenience functions
 __all__ = [
-    "setup_logging",
-    "get_logger",
-    "log_error",
-    "log_exception",
-    "log_async_exception",
-    "set_request_context",
-    "clear_request_context",
-    "SentryIntegration",
     "ErrorContext",
     "LogLevel",
+    "SentryIntegration",
+    "clear_request_context",
+    "get_logger",
+    "log_async_exception",
+    "log_error",
+    "log_exception",
+    "set_request_context",
+    "setup_logging",
 ]

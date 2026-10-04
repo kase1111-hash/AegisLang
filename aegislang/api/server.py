@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import hashlib
 import hmac
 import json
 import os
@@ -22,21 +21,34 @@ import threading
 import time
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import structlog
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, BackgroundTasks, Depends, Security
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Security,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 
 from aegislang import __version__
 from aegislang.agents.schema_mapping_agent import SchemaTable, SchemaType  # noqa: TC001
-from aegislang.core.logging import set_request_context, clear_request_context
+from aegislang.core.logging import clear_request_context, set_request_context
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 
 logger = structlog.get_logger(__name__)
 
@@ -61,14 +73,14 @@ def _get_dev_api_key() -> str:
             logger.warning(
                 "no_api_keys_configured",
                 message="No API keys configured. Set AEGISLANG_API_KEYS or "
-                        "AEGISLANG_DISABLE_AUTH=true",
+                "AEGISLANG_DISABLE_AUTH=true",
                 development_key=_dev_api_key,
             )
         return _dev_api_key
 
 
-# API keys can be set via environment variable (comma-separated)
-# Example: AEGISLANG_API_KEYS="key1,key2,key3"
+# API keys can be set via the AEGISLANG_API_KEYS environment variable
+# as a comma-separated list of keys.
 def get_valid_api_keys() -> set[str]:
     """Get valid API keys from environment."""
     keys_env = os.environ.get("AEGISLANG_API_KEYS", "")
@@ -121,6 +133,7 @@ async def verify_api_key(api_key: str | None = Security(API_KEY_HEADER)) -> str:
 # Security: Rate Limiting
 # =============================================================================
 
+
 class RateLimiter:
     """Simple in-memory rate limiter."""
 
@@ -151,9 +164,7 @@ class RateLimiter:
             return False, f"Rate limit exceeded: {self.requests_per_minute}/minute"
 
         # Clean up and check hour limit
-        self._hour_counts[client_id] = self._cleanup_old_entries(
-            self._hour_counts[client_id], 3600
-        )
+        self._hour_counts[client_id] = self._cleanup_old_entries(self._hour_counts[client_id], 3600)
         if len(self._hour_counts[client_id]) >= self.requests_per_hour:
             return False, f"Rate limit exceeded: {self.requests_per_hour}/hour"
 
@@ -179,6 +190,7 @@ async def check_rate_limit(api_key: str = Depends(verify_api_key)) -> str:
         raise HTTPException(status_code=429, detail=error, headers={"Retry-After": retry_after})
     return api_key
 
+
 # =============================================================================
 # Application Setup
 # =============================================================================
@@ -195,7 +207,9 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")],
+    allow_origins=[
+        o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["X-API-Key", "Content-Type", "X-Request-ID", "Accept"],
@@ -203,7 +217,9 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def request_id_middleware(request: Request, call_next):
+async def request_id_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     """Assign a request ID to every request for tracing through logs and errors."""
     request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
     request.state.request_id = request_id
@@ -220,8 +236,10 @@ async def request_id_middleware(request: Request, call_next):
 # Request/Response Models
 # =============================================================================
 
+
 class JobStatus(str, Enum):
     """Status of an async job."""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -230,6 +248,7 @@ class JobStatus(str, Enum):
 
 class DocumentMetadataRequest(BaseModel):
     """Metadata for document ingestion."""
+
     document_name: str = Field(..., description="Name of the document")
     document_type: str = Field(default="regulation", description="Type of document")
     jurisdiction: str | None = Field(default=None, description="Jurisdiction")
@@ -238,6 +257,7 @@ class DocumentMetadataRequest(BaseModel):
 
 class IngestResponse(BaseModel):
     """Response from document ingestion."""
+
     status: str = Field(..., description="Request status")
     job_id: str = Field(..., description="Async job ID")
     doc_id: str = Field(..., description="Document ID")
@@ -247,11 +267,10 @@ class IngestResponse(BaseModel):
 
 class CompileRequest(BaseModel):
     """Request for document compilation."""
+
     doc_id: str = Field(..., description="Document ID to compile")
     output_formats: list[Literal["yaml", "sql", "python"]] = Field(
-        default=["yaml", "sql"],
-        min_length=1,
-        description="Output formats to generate"
+        default=["yaml", "sql"], min_length=1, description="Output formats to generate"
     )
     target_schema: str | None = Field(default=None, description="Target schema ID")
     confidence_threshold: float = Field(default=0.85, description="Minimum confidence")
@@ -259,6 +278,7 @@ class CompileRequest(BaseModel):
 
 class JobResponse(BaseModel):
     """Response with job status."""
+
     job_id: str
     status: JobStatus
     created_at: str
@@ -269,6 +289,7 @@ class JobResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """Health check response."""
+
     status: str
     version: str
     timestamp: str
@@ -279,6 +300,7 @@ class HealthResponse(BaseModel):
 
 class SchemaRegistryRequest(BaseModel):
     """Request to register a schema."""
+
     schema_id: str = Field(..., min_length=1, description="Unique schema identifier")
     schema_type: SchemaType = Field(..., description="Schema type: sql, api, or object")
     version: str = Field(default="1.0.0", description="Schema version")
@@ -288,6 +310,7 @@ class SchemaRegistryRequest(BaseModel):
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
+
 
 class Storage:
     """
@@ -327,7 +350,7 @@ class Storage:
             logger.warning(
                 "in_memory_storage_active",
                 message="Using in-memory storage. Data will be lost on restart. "
-                        "Set AEGISLANG_STORAGE_BACKEND for production use.",
+                "Set AEGISLANG_STORAGE_BACKEND for production use.",
             )
             Storage._warned = True
 
@@ -336,7 +359,8 @@ class Storage:
 
     def _start_cleanup_thread(self) -> None:
         """Start background thread for periodic job cleanup."""
-        def cleanup_loop():
+
+        def cleanup_loop() -> None:
             while True:
                 time.sleep(self.CLEANUP_INTERVAL)
                 self._cleanup_expired_jobs()
@@ -348,7 +372,7 @@ class Storage:
     def _cleanup_expired_jobs(self) -> None:
         """Remove jobs that have exceeded their TTL."""
         with self._lock:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             expired_jobs = []
 
             for job_id, job in self.jobs.items():
@@ -395,7 +419,7 @@ class Storage:
                 "job_id": job_id,
                 "job_type": job_type,
                 "status": JobStatus.PENDING,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "completed_at": None,
                 "result": None,
                 "error": None,
@@ -416,7 +440,7 @@ class Storage:
                 self.jobs[job_id]["result"] = result
                 self.jobs[job_id]["error"] = error
                 if status in (JobStatus.COMPLETED, JobStatus.FAILED):
-                    self.jobs[job_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+                    self.jobs[job_id]["completed_at"] = datetime.now(UTC).isoformat()
 
     def store_document(self, doc_id: str, doc_data: dict[str, Any]) -> None:
         """Thread-safe document storage."""
@@ -444,6 +468,7 @@ def _create_storage() -> Storage:
     backend = os.environ.get("AEGISLANG_STORAGE_BACKEND", "memory").lower()
     if backend == "sqlite":
         from aegislang.api.sqlite_storage import SqliteStorage
+
         return SqliteStorage()  # type: ignore[return-value]
     return Storage()
 
@@ -460,6 +485,7 @@ def get_storage() -> Storage:
 # Background Tasks
 # =============================================================================
 
+
 def secure_delete_file(file_path: Path) -> None:
     """
     Securely delete a file by overwriting with random data before unlinking.
@@ -475,7 +501,7 @@ def secure_delete_file(file_path: Path) -> None:
         file_size = file_path.stat().st_size
 
         # Overwrite with random data (single pass)
-        with open(file_path, "wb") as f:
+        with file_path.open("wb") as f:
             # Write in chunks to handle large files
             chunk_size = 8192
             remaining = file_size
@@ -594,7 +620,7 @@ def process_ingestion(
 def process_compilation(
     job_id: str,
     doc_id: str,
-    output_formats: list[str],
+    output_formats: Sequence[str],
     target_schema: str | None,
     confidence_threshold: float,
     storage: Storage,
@@ -634,7 +660,7 @@ def process_compilation(
         mapped_data = mapped.model_dump(mode="json")
 
         # Run compiler
-        from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
+        from aegislang.agents.compiler_agent import ArtifactFormat, CompilerAgent
 
         compiler = CompilerAgent()
         formats = [ArtifactFormat(f) for f in output_formats]
@@ -653,9 +679,7 @@ def process_compilation(
         validator = TraceValidatorAgent(
             config=ValidationConfig(confidence_threshold=confidence_threshold)
         )
-        validated = validator.validate_compiled_collection(
-            compiled_data, mapped_data, parsed_data
-        )
+        validated = validator.validate_compiled_collection(compiled_data, mapped_data, parsed_data)
         provenance = validator.build_provenance_graph(validated)
 
         # Store validation results and provenance graph (audit trail)
@@ -692,13 +716,14 @@ def process_compilation(
 # API Endpoints
 # =============================================================================
 
+
 @app.get("/api/v1/health", response_model=HealthResponse, tags=["Health"])
 async def health_check() -> HealthResponse:
     """Health check endpoint."""
     return HealthResponse(
         status="healthy",
         version=__version__,
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         llm_provider=_llm_provider(),
     )
 
@@ -916,9 +941,7 @@ async def compile_document(
         raise HTTPException(status_code=404, detail="Document not found")
 
     if request.target_schema and request.target_schema not in known_schema_ids(storage):
-        raise HTTPException(
-            status_code=404, detail=f"Schema not found: {request.target_schema}"
-        )
+        raise HTTPException(status_code=404, detail=f"Schema not found: {request.target_schema}")
 
     # Create job
     job_id = storage.create_job("cmp")
@@ -966,18 +989,20 @@ async def stream_job_status(
     if job_id not in storage.jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    async def event_generator():
+    async def event_generator() -> AsyncIterator[str]:
         while True:
             if job_id not in storage.jobs:
                 break
             job = storage.jobs[job_id]
             status = job["status"]
-            data = json.dumps({
-                "job_id": job_id,
-                "status": status.value if isinstance(status, JobStatus) else status,
-                "result": job.get("result"),
-                "error": job.get("error"),
-            })
+            data = json.dumps(
+                {
+                    "job_id": job_id,
+                    "status": status.value if isinstance(status, JobStatus) else status,
+                    "result": job.get("result"),
+                    "error": job.get("error"),
+                }
+            )
             yield f"data: {data}\n\n"
             if status in (JobStatus.COMPLETED, JobStatus.FAILED):
                 break
@@ -1002,7 +1027,7 @@ async def register_schema(
         "schema_type": request.schema_type.value,
         "version": request.version,
         "tables": [table.model_dump(exclude_none=True) for table in request.tables],
-        "registered_at": datetime.now(timezone.utc).isoformat(),
+        "registered_at": datetime.now(UTC).isoformat(),
     }
 
     return {
@@ -1042,7 +1067,7 @@ async def get_schema(
 # =============================================================================
 
 # Register centralized error handlers from core module
-from aegislang.core.errors import register_error_handlers, create_error_response
+from aegislang.core.errors import register_error_handlers
 
 register_error_handlers(app)
 
@@ -1050,6 +1075,7 @@ register_error_handlers(app)
 # =============================================================================
 # CLI Entry Point
 # =============================================================================
+
 
 def main() -> None:
     """Run the API server."""
@@ -1074,7 +1100,7 @@ def main() -> None:
         os.environ["AEGISLANG_API_KEYS"] = _get_dev_api_key()
 
     # Binding all interfaces is intended for container deployment; override with HOST
-    host = os.environ.get("HOST", "0.0.0.0")  # nosec B104
+    host = os.environ.get("HOST", "0.0.0.0")  # noqa: S104  # nosec B104
     port = int(os.environ.get("PORT", "8080"))
     workers = int(os.environ.get("WORKERS", "4"))
     reload = os.environ.get("RELOAD", "false").lower() == "true"
@@ -1087,7 +1113,7 @@ def main() -> None:
         logger.warning(
             "forcing_single_worker",
             message="In-memory storage requires workers=1. "
-                    "Set AEGISLANG_STORAGE_BACKEND=sqlite for multi-worker.",
+            "Set AEGISLANG_STORAGE_BACKEND=sqlite for multi-worker.",
         )
         workers = 1
 

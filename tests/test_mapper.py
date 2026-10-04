@@ -3,26 +3,27 @@ Unit tests for L3 Mapping Layer (schema_mapping_agent.py)
 """
 
 import pytest
+
 from aegislang.agents.schema_mapping_agent import (
-    SchemaMappingAgent,
-    SchemaRegistry,
-    TargetSchema,
-    SchemaTable,
-    SchemaField,
-    SchemaType,
-    MappedClause,
     EntityMapping,
+    MappedClause,
     MappingMethod,
     MappingStatus,
-    SourceRole,
     MockEmbeddingProvider,
+    SchemaField,
+    SchemaMappingAgent,
+    SchemaRegistry,
+    SchemaTable,
+    SchemaType,
+    SourceRole,
+    TargetSchema,
     create_default_registry,
 )
-
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def mock_embedding_provider():
@@ -75,14 +76,13 @@ def sample_schema():
 @pytest.fixture
 def sample_registry(sample_schema):
     """Create sample registry with schema."""
-    registry = SchemaRegistry(
+    return SchemaRegistry(
         schemas=[sample_schema],
         synonyms={
             "customer": ["client", "user", "account holder"],
             "transaction": ["payment", "transfer"],
         },
     )
-    return registry
 
 
 @pytest.fixture
@@ -134,6 +134,7 @@ def sample_parsed_collection(sample_parsed_clause):
 # MockEmbeddingProvider Tests
 # =============================================================================
 
+
 class TestMockEmbeddingProvider:
     """Tests for MockEmbeddingProvider."""
 
@@ -172,6 +173,7 @@ class TestMockEmbeddingProvider:
 # SchemaRegistry Tests
 # =============================================================================
 
+
 class TestSchemaRegistry:
     """Tests for SchemaRegistry."""
 
@@ -201,6 +203,7 @@ class TestSchemaRegistry:
 # =============================================================================
 # SchemaMappingAgent Tests
 # =============================================================================
+
 
 class TestSchemaMappingAgent:
     """Tests for SchemaMappingAgent."""
@@ -249,17 +252,21 @@ class TestSchemaMappingAgent:
 
     def test_map_entity_synonym_match(self, mapper):
         """Test synonym match mapping."""
-        mapping, unmapped = mapper.map_entity("client", SourceRole.ACTOR)
+        mapping, _unmapped = mapper.map_entity("client", SourceRole.ACTOR)
 
         # "client" is a synonym for "customer"
         if mapping:
-            assert mapping.mapping_method in [MappingMethod.SYNONYM, MappingMethod.SEMANTIC, MappingMethod.EXACT]
+            assert mapping.mapping_method in [
+                MappingMethod.SYNONYM,
+                MappingMethod.SEMANTIC,
+                MappingMethod.EXACT,
+            ]
 
     def test_map_entity_manual_override(self, mapper):
         """Test manual override mapping."""
         mapper.add_manual_override("special entity", "test_schema:customer.customer_id")
 
-        mapping, unmapped = mapper.map_entity("special entity", SourceRole.ACTOR)
+        mapping, _unmapped = mapper.map_entity("special entity", SourceRole.ACTOR)
 
         assert mapping is not None
         assert mapping.mapping_method == MappingMethod.MANUAL_OVERRIDE
@@ -267,7 +274,7 @@ class TestSchemaMappingAgent:
 
     def test_map_entity_unmapped(self, mapper):
         """Test unmapped entity."""
-        mapping, unmapped = mapper.map_entity(
+        _mapping, unmapped = mapper.map_entity(
             "completely unknown entity xyz",
             SourceRole.ACTOR,
         )
@@ -304,6 +311,7 @@ class TestSchemaMappingAgent:
 # EntityMapping Tests
 # =============================================================================
 
+
 class TestEntityMapping:
     """Tests for EntityMapping model."""
 
@@ -338,6 +346,7 @@ class TestEntityMapping:
 # MappedClause Tests
 # =============================================================================
 
+
 class TestMappedClause:
     """Tests for MappedClause model."""
 
@@ -365,6 +374,7 @@ class TestMappedClause:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestMapperIntegration:
     """Integration tests for the mapper."""

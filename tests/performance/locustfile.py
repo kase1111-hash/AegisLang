@@ -24,9 +24,9 @@ Usage:
 """
 
 import random
-from locust import HttpUser, task, between, events
-from locust.runners import MasterRunner
 
+from locust import HttpUser, between, events, task
+from locust.runners import MasterRunner
 
 # =============================================================================
 # Sample Data
@@ -71,6 +71,7 @@ Staff must not share confidential information.
 # Utility Functions
 # =============================================================================
 
+
 def get_sample_policy() -> str:
     """Get a random sample policy."""
     return random.choice(SAMPLE_POLICIES)
@@ -79,6 +80,7 @@ def get_sample_policy() -> str:
 # =============================================================================
 # User Behaviors
 # =============================================================================
+
 
 class AegisLangUser(HttpUser):
     """
@@ -304,6 +306,7 @@ class ReadOnlyUser(HttpUser):
 # Event Hooks
 # =============================================================================
 
+
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
     """Called when load test starts."""
@@ -322,6 +325,7 @@ def on_test_stop(environment, **kwargs):
 # Custom Shape (Optional)
 # =============================================================================
 
+
 class StagesShape:
     """
     Custom load shape that ramps up in stages.
@@ -332,11 +336,11 @@ class StagesShape:
     """
 
     stages = [
-        {"duration": 60, "users": 10, "spawn_rate": 2},    # Warm up
-        {"duration": 120, "users": 50, "spawn_rate": 5},   # Normal load
+        {"duration": 60, "users": 10, "spawn_rate": 2},  # Warm up
+        {"duration": 120, "users": 50, "spawn_rate": 5},  # Normal load
         {"duration": 60, "users": 100, "spawn_rate": 10},  # Peak load
-        {"duration": 60, "users": 50, "spawn_rate": 5},    # Cool down
-        {"duration": 60, "users": 10, "spawn_rate": 2},    # Final stage
+        {"duration": 60, "users": 50, "spawn_rate": 5},  # Cool down
+        {"duration": 60, "users": 10, "spawn_rate": 2},  # Final stage
     ]
 
     def tick(self):
