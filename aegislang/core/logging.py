@@ -335,6 +335,14 @@ def setup_logging(
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
+def configure_cli_logging() -> None:
+    """Send log output to stderr so CLI results on stdout stay machine-readable."""
+    structlog.configure(
+        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
+        cache_logger_on_first_use=False,
+    )
+
+
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     """
     Get a structured logger instance.

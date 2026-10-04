@@ -1004,6 +1004,10 @@ def main() -> None:
     import argparse
     import sys
 
+    from aegislang.core.logging import configure_cli_logging
+
+    configure_cli_logging()
+
     parser = argparse.ArgumentParser(
         description="AegisLang Compiler - L4 Compilation Layer"
     )

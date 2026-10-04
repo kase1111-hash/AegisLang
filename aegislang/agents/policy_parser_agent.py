@@ -916,6 +916,10 @@ def main() -> None:
     import argparse
     import sys
 
+    from aegislang.core.logging import configure_cli_logging
+
+    configure_cli_logging()
+
     parser = argparse.ArgumentParser(
         description="AegisLang Policy Parser - L2 Parsing Layer"
     )
