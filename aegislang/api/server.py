@@ -24,7 +24,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, BackgroundTasks, Depends, Security
@@ -33,6 +33,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 
+from aegislang import __version__
+from aegislang.agents.schema_mapping_agent import SchemaType, SchemaTable
 from aegislang.core.logging import set_request_context, clear_request_context
 
 logger = structlog.get_logger(__name__)
@@ -44,6 +46,26 @@ logger = structlog.get_logger(__name__)
 
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 
+# Development key generated once per process when no keys are configured
+_dev_api_key: str | None = None
+_dev_api_key_lock = threading.Lock()
+
+
+def _get_dev_api_key() -> str:
+    """Return the per-process development key, generating and logging it once."""
+    global _dev_api_key
+    with _dev_api_key_lock:
+        if _dev_api_key is None:
+            _dev_api_key = secrets.token_urlsafe(32)
+            logger.warning(
+                "no_api_keys_configured",
+                message="No API keys configured. Set AEGISLANG_API_KEYS or "
+                        "AEGISLANG_DISABLE_AUTH=true",
+                development_key=_dev_api_key,
+            )
+        return _dev_api_key
+
+
 # API keys can be set via environment variable (comma-separated)
 # Example: AEGISLANG_API_KEYS="key1,key2,key3"
 def get_valid_api_keys() -> set[str]:
@@ -53,14 +75,8 @@ def get_valid_api_keys() -> set[str]:
         # If no keys configured, check if auth is disabled
         if os.environ.get("AEGISLANG_DISABLE_AUTH", "").lower() == "true":
             return set()
-        # Generate a random key for development and log it
-        dev_key = secrets.token_urlsafe(32)
-        logger.warning(
-            "no_api_keys_configured",
-            message="No API keys configured. Set AEGISLANG_API_KEYS or AEGISLANG_DISABLE_AUTH=true",
-            development_key=dev_key,
-        )
-        return {dev_key}
+        # Fall back to a random development key, stable for the process lifetime
+        return {_get_dev_api_key()}
     return {k.strip() for k in keys_env.split(",") if k.strip()}
 
 
@@ -158,7 +174,8 @@ async def check_rate_limit(api_key: str = Depends(verify_api_key)) -> str:
     """Check rate limit for the API key."""
     allowed, error = _rate_limiter.is_allowed(api_key)
     if not allowed:
-        raise HTTPException(status_code=429, detail=error)
+        retry_after = "3600" if error and error.endswith("/hour") else "60"
+        raise HTTPException(status_code=429, detail=error, headers={"Retry-After": retry_after})
     return api_key
 
 # =============================================================================
@@ -168,7 +185,7 @@ async def check_rate_limit(api_key: str = Depends(verify_api_key)) -> str:
 app = FastAPI(
     title="AegisLang API",
     description="Multi-agent semantic compiler for regulatory compliance",
-    version="1.0.0",
+    version=__version__,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
@@ -230,8 +247,9 @@ class IngestResponse(BaseModel):
 class CompileRequest(BaseModel):
     """Request for document compilation."""
     doc_id: str = Field(..., description="Document ID to compile")
-    output_formats: list[str] = Field(
+    output_formats: list[Literal["yaml", "sql", "python"]] = Field(
         default=["yaml", "sql"],
+        min_length=1,
         description="Output formats to generate"
     )
     target_schema: str | None = Field(default=None, description="Target schema ID")
@@ -257,10 +275,10 @@ class HealthResponse(BaseModel):
 
 class SchemaRegistryRequest(BaseModel):
     """Request to register a schema."""
-    schema_id: str
-    schema_type: str
-    version: str = "1.0.0"
-    tables: list[dict[str, Any]]
+    schema_id: str = Field(..., min_length=1, description="Unique schema identifier")
+    schema_type: SchemaType = Field(..., description="Schema type: sql, api, or object")
+    version: str = Field(default="1.0.0", description="Schema version")
+    tables: list[SchemaTable] = Field(..., description="Table definitions")
 
 
 # =============================================================================
@@ -479,6 +497,32 @@ def _should_use_mock() -> bool:
     )
 
 
+def build_schema_registry(storage: Storage) -> Any:
+    """Build the mapping registry: built-in schemas plus schemas registered via the API.
+
+    A registered schema replaces a built-in schema with the same ID.
+    """
+    from aegislang.agents.schema_mapping_agent import TargetSchema, create_default_registry
+
+    registry = create_default_registry()
+    registered = [
+        TargetSchema(**{k: v for k, v in schema.items() if k != "registered_at"})
+        for schema in storage.schemas.values()
+    ]
+    registered_ids = {schema.schema_id for schema in registered}
+    registry.schemas = [
+        s for s in registry.schemas if s.schema_id not in registered_ids
+    ] + registered
+    return registry
+
+
+def known_schema_ids(storage: Storage) -> set[str]:
+    """IDs of all schemas available as a compilation target."""
+    from aegislang.agents.schema_mapping_agent import create_default_registry
+
+    return {s.schema_id for s in create_default_registry().schemas} | set(storage.schemas.keys())
+
+
 def process_ingestion(
     job_id: str,
     file_path: Path,
@@ -551,13 +595,10 @@ def process_compilation(
         storage.store_clauses(doc_id, parsed_data.get("clauses", []))
 
         # Run mapper
-        from aegislang.agents.schema_mapping_agent import (
-            SchemaMappingAgent,
-            create_default_registry,
-        )
+        from aegislang.agents.schema_mapping_agent import SchemaMappingAgent
 
         mapper = SchemaMappingAgent(
-            registry=create_default_registry(),
+            registry=build_schema_registry(storage),
             use_mock=_should_use_mock(),
         )
         mapped = mapper.map_parsed_collection(parsed_data, target_schema)
@@ -614,7 +655,7 @@ async def health_check() -> HealthResponse:
     """Health check endpoint."""
     return HealthResponse(
         status="healthy",
-        version="1.0.0",
+        version=__version__,
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
@@ -688,11 +729,11 @@ async def ingest_document(
     # Parse metadata
     try:
         meta_dict = json.loads(metadata)
-        # Validate metadata is a dict (prevent injection)
-        if not isinstance(meta_dict, dict):
-            meta_dict = {}
     except json.JSONDecodeError:
-        meta_dict = {}
+        raise HTTPException(status_code=400, detail="metadata must be valid JSON")
+    # Validate metadata is a JSON object (prevent injection)
+    if not isinstance(meta_dict, dict):
+        raise HTTPException(status_code=400, detail="metadata must be a JSON object")
 
     # Save file to temp location with secure naming
     temp_dir = Path(tempfile.gettempdir()) / "aegislang"
@@ -787,16 +828,16 @@ async def get_rule(
     storage: Storage = Depends(get_storage),
     api_key: str = Depends(check_rate_limit),
 ) -> dict[str, Any]:
-    """Retrieve generated rule artifact for a clause. Requires X-API-Key header."""
+    """Retrieve all generated artifacts for a clause. Requires X-API-Key header."""
     # Search through all artifacts
     for doc_id, artifacts in storage.artifacts.items():
-        for artifact in artifacts:
-            if artifact.get("clause_id") == clause_id:
-                return {
-                    "clause_id": clause_id,
-                    "artifacts": [artifact],
-                    "doc_id": doc_id,
-                }
+        matches = [a for a in artifacts if a.get("clause_id") == clause_id]
+        if matches:
+            return {
+                "clause_id": clause_id,
+                "artifacts": matches,
+                "doc_id": doc_id,
+            }
 
     raise HTTPException(status_code=404, detail="Rule not found")
 
@@ -811,6 +852,11 @@ async def compile_document(
     """Trigger full compilation pipeline for a document. Requires X-API-Key header."""
     if request.doc_id not in storage.documents:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    if request.target_schema and request.target_schema not in known_schema_ids(storage):
+        raise HTTPException(
+            status_code=404, detail=f"Schema not found: {request.target_schema}"
+        )
 
     # Create job
     job_id = storage.create_job("cmp")
@@ -891,9 +937,9 @@ async def register_schema(
     """Register or update a target schema. Requires X-API-Key header."""
     storage.schemas[request.schema_id] = {
         "schema_id": request.schema_id,
-        "schema_type": request.schema_type,
+        "schema_type": request.schema_type.value,
         "version": request.version,
-        "tables": request.tables,
+        "tables": [table.model_dump(exclude_none=True) for table in request.tables],
         "registered_at": datetime.now(timezone.utc).isoformat(),
     }
 

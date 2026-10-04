@@ -117,26 +117,36 @@ class _SqliteDict:
 
 
 class _SqliteListDict:
-    """Dict-like interface for tables that store lists of values (clauses, artifacts)."""
+    """Dict-like interface for tables that store lists of values (clauses, artifacts).
+
+    Keys are tracked in a companion ``{table}_keys`` table so that a key
+    stored with an empty list is still reported as present.
+    """
 
     def __init__(self, conn: sqlite3.Connection, table: str, lock: threading.Lock):
         self._conn = conn
         self._table = table
+        self._keys_table = f"{table}_keys"
         self._lock = lock
 
     def __getitem__(self, key: str) -> list[dict[str, Any]]:
+        if key not in self:
+            raise KeyError(key)
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT value FROM {self._table} WHERE key = ?", (key,)  # noqa: S608
+                f"SELECT value FROM {self._table} WHERE key = ? ORDER BY rowid",  # noqa: S608
+                (key,),
             ).fetchall()
-        if not rows:
-            raise KeyError(key)
         return [json.loads(r[0]) for r in rows]
 
     def __setitem__(self, key: str, values: list[dict[str, Any]]) -> None:
         with self._lock:
             self._conn.execute(
                 f"DELETE FROM {self._table} WHERE key = ?", (key,)  # noqa: S608
+            )
+            self._conn.execute(
+                f"INSERT OR IGNORE INTO {self._keys_table} (key) VALUES (?)",  # noqa: S608
+                (key,),
             )
             for val in values:
                 blob = json.dumps(val, default=str)
@@ -149,9 +159,16 @@ class _SqliteListDict:
     def __contains__(self, key: object) -> bool:
         with self._lock:
             row = self._conn.execute(
-                f"SELECT 1 FROM {self._table} WHERE key = ? LIMIT 1", (str(key),)  # noqa: S608
+                f"SELECT 1 FROM {self._keys_table} WHERE key = ?", (str(key),)  # noqa: S608
             ).fetchone()
         return row is not None
+
+    def __len__(self) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                f"SELECT COUNT(*) FROM {self._keys_table}"  # noqa: S608
+            ).fetchone()
+        return row[0]
 
     def get(self, key: str, default: Any = None) -> Any:
         try:
@@ -164,7 +181,7 @@ class _SqliteListDict:
             keys = [
                 r[0]
                 for r in self._conn.execute(
-                    f"SELECT DISTINCT key FROM {self._table}"  # noqa: S608
+                    f"SELECT key FROM {self._keys_table}"  # noqa: S608
                 ).fetchall()
             ]
         for key in keys:
@@ -228,11 +245,19 @@ class SqliteStorage:
                     value TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_clauses_key ON clauses(key);
+                CREATE TABLE IF NOT EXISTS clauses_keys (
+                    key TEXT PRIMARY KEY
+                );
                 CREATE TABLE IF NOT EXISTS artifacts (
                     key TEXT NOT NULL,
                     value TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_artifacts_key ON artifacts(key);
+                CREATE TABLE IF NOT EXISTS artifacts_keys (
+                    key TEXT PRIMARY KEY
+                );
+                INSERT OR IGNORE INTO clauses_keys (key) SELECT DISTINCT key FROM clauses;
+                INSERT OR IGNORE INTO artifacts_keys (key) SELECT DISTINCT key FROM artifacts;
             """)
 
     def create_job(self, job_type: str) -> str:
@@ -271,6 +296,18 @@ class SqliteStorage:
             ):
                 job["completed_at"] = datetime.now(timezone.utc).isoformat()
             self.jobs[job_id] = job
+
+    def store_document(self, doc_id: str, doc_data: dict[str, Any]) -> None:
+        """Persist a document."""
+        self.documents[doc_id] = doc_data
+
+    def store_clauses(self, doc_id: str, clauses: list[dict[str, Any]]) -> None:
+        """Persist the clauses parsed from a document."""
+        self.clauses[doc_id] = clauses
+
+    def store_artifacts(self, doc_id: str, artifacts: list[dict[str, Any]]) -> None:
+        """Persist the artifacts compiled from a document."""
+        self.artifacts[doc_id] = artifacts
 
     def _cleanup_expired_jobs(self) -> None:
         """Remove jobs that have exceeded their TTL."""
