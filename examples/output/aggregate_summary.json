@@ -9,7 +9,7 @@
   "per_document": [
     {
       "document": "fatf_recommendation_10",
-      "source_path": "/home/user/AegisLang/examples/regulations/fatf_recommendation_10.md",
+      "source_path": "examples/regulations/fatf_recommendation_10.md",
       "ingestion": {
         "sections": 9,
         "total_chunks": 6
@@ -19,8 +19,7 @@
         "clause_types": {
           "obligation": 14,
           "permission": 2,
-          "prohibition": 1,
-          "conditional": 1
+          "prohibition": 2
         }
       },
       "mapping": {
@@ -39,14 +38,14 @@
       },
       "validation": {
         "total": 54,
-        "passed": 32,
-        "failed": 18,
-        "needs_review": 4
+        "passed": 45,
+        "failed": 0,
+        "needs_review": 9
       }
     },
     {
       "document": "ffiec_cip_manual",
-      "source_path": "/home/user/AegisLang/examples/regulations/ffiec_cip_manual.md",
+      "source_path": "examples/regulations/ffiec_cip_manual.md",
       "ingestion": {
         "sections": 9,
         "total_chunks": 6
@@ -75,14 +74,14 @@
       },
       "validation": {
         "total": 51,
-        "passed": 28,
-        "failed": 17,
-        "needs_review": 6
+        "passed": 36,
+        "failed": 0,
+        "needs_review": 15
       }
     },
     {
       "document": "fincen_cdd_rule",
-      "source_path": "/home/user/AegisLang/examples/regulations/fincen_cdd_rule.md",
+      "source_path": "examples/regulations/fincen_cdd_rule.md",
       "ingestion": {
         "sections": 9,
         "total_chunks": 5
@@ -110,8 +109,8 @@
       },
       "validation": {
         "total": 42,
-        "passed": 28,
-        "failed": 14,
+        "passed": 42,
+        "failed": 0,
         "needs_review": 0
       }
     }

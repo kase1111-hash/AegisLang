@@ -323,7 +323,7 @@ def run_pipeline(
     print("  [1/5] Ingesting document...")
     ingestor = AegisIngestor()
     ingested = ingestor.ingest(doc_path)
-    ingested_data = ingested.model_dump()
+    ingested_data = ingested.model_dump(mode="json")
     print(f"         Sections: {len(ingested.sections)}, "
           f"Chunks: {sum(len(s.text_chunks) for s in ingested.sections)}")
 
@@ -331,7 +331,7 @@ def run_pipeline(
     print("  [2/5] Parsing clauses (mock LLM)...")
     parser = PolicyParserAgent(use_mock=True)
     parsed = parser.parse_ingested_document(ingested_data)
-    parsed_data = parsed.model_dump()
+    parsed_data = parsed.model_dump(mode="json")
     clause_types = {}
     for c in parsed.clauses:
         t = c.type.value
@@ -343,7 +343,7 @@ def run_pipeline(
     print("  [3/5] Mapping to AML schema...")
     mapper = SchemaMappingAgent(registry=registry, use_mock=True)
     mapped = mapper.map_parsed_collection(parsed_data, target_schema_id="aml_schema")
-    mapped_data = mapped.model_dump()
+    mapped_data = mapped.model_dump(mode="json")
     mapped_count = sum(1 for c in mapped.clauses if c.mapping_status.value == "complete")
     partial_count = sum(1 for c in mapped.clauses if c.mapping_status.value == "partial")
     unmapped_count = sum(1 for c in mapped.clauses if c.mapping_status.value in ("failed", "needs_review"))
@@ -355,7 +355,7 @@ def run_pipeline(
     compiler = CompilerAgent()
     formats = [ArtifactFormat.YAML, ArtifactFormat.SQL, ArtifactFormat.PYTHON]
     compiled = compiler.compile_mapped_collection(mapped_data, formats=formats)
-    compiled_data = compiled.model_dump()
+    compiled_data = compiled.model_dump(mode="json")
     artifact_counts = {}
     for a in compiled.artifacts:
         fmt = a.format.value
@@ -370,21 +370,24 @@ def run_pipeline(
     )
     print(f"         Summary: {validated.summary}")
 
-    # Save outputs
+    # Save outputs, replacing artifacts from previous runs
     doc_output_dir = output_dir / doc_name
     doc_output_dir.mkdir(parents=True, exist_ok=True)
+    for stale in doc_output_dir.iterdir():
+        if stale.is_file():
+            stale.unlink()
 
     # Save each artifact
     for artifact in compiled.artifacts:
-        ext = artifact.format.value
+        ext = CompilerAgent.FILE_EXTENSIONS[artifact.format]
         clause_id = artifact.clause_id.replace("/", "_")
-        artifact_path = doc_output_dir / f"{clause_id}.{ext}"
+        artifact_path = doc_output_dir / f"{clause_id}{ext}"
         artifact_path.write_text(artifact.content)
 
     # Save full pipeline output as JSON
     pipeline_output = {
         "document": doc_name,
-        "source_path": str(doc_path),
+        "source_path": str(doc_path.relative_to(Path(__file__).parent.parent)),
         "ingestion": {
             "sections": len(ingested.sections),
             "total_chunks": sum(len(s.text_chunks) for s in ingested.sections),

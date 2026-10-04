@@ -54,31 +54,6 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: aegislang
-          POSTGRES_PASSWORD: aegislang
-          POSTGRES_DB: aegislang_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -96,9 +71,6 @@ jobs:
           pip install pytest pytest-cov pytest-asyncio httpx
 
       - name: Run tests
-        env:
-          DATABASE_URL: postgresql://aegislang:aegislang@localhost:5432/aegislang_test
-          REDIS_URL: redis://localhost:6379/0
         run: |
           pytest tests/ -v --cov=aegislang --cov-report=xml --cov-report=term-missing
 

@@ -1,6 +1,6 @@
 {
   "document": "fatf_recommendation_10",
-  "source_path": "/home/user/AegisLang/examples/regulations/fatf_recommendation_10.md",
+  "source_path": "examples/regulations/fatf_recommendation_10.md",
   "ingestion": {
     "sections": 9,
     "total_chunks": 6
@@ -10,8 +10,7 @@
     "clause_types": {
       "obligation": 14,
       "permission": 2,
-      "prohibition": 1,
-      "conditional": 1
+      "prohibition": 2
     }
   },
   "mapping": {
@@ -30,8 +29,8 @@
   },
   "validation": {
     "total": 54,
-    "passed": 32,
-    "failed": 18,
-    "needs_review": 4
+    "passed": 45,
+    "failed": 0,
+    "needs_review": 9
   }
 }

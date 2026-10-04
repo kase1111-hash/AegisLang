@@ -9,15 +9,15 @@
 #   - ANTHROPIC_API_KEY / OPENAI_API_KEY: LLM API credentials
 #   - AEGISLANG_STORAGE_BACKEND: Storage backend ("memory" or "sqlite")
 #   - AEGISLANG_SQLITE_PATH: SQLite database path (default: aegislang_data.db)
-#   - DATABASE_URL: PostgreSQL connection string (Docker Compose stack)
-#   - REDIS_URL: Redis connection (Docker Compose stack)
-#   - NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD: Graph database credentials (optional)
+#   - NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD: Graph database credentials (optional,
+#     not used by the API server)
 #   - AEGISLANG_API_KEYS: Comma-separated API keys for authentication
 #   - AEGISLANG_DISABLE_AUTH: Set to "true" to disable authentication (dev only)
 #   - AEGISLANG_RATE_LIMIT_MINUTE: Requests per minute limit (default: 60)
 #   - AEGISLANG_RATE_LIMIT_HOUR: Requests per hour limit (default: 1000)
 #   - AEGISLANG_MAX_FILE_SIZE: Max upload size in bytes (default: 52428800)
 #   - HOST, PORT, WORKERS: Server configuration
+#   - LOG_LEVEL / AEGISLANG_LOG_LEVEL, AEGISLANG_LOG_FILE, SENTRY_DSN: Logging
 #
 # Future versions will add automatic config file loading.
 #
@@ -26,7 +26,7 @@
 # -----------------------------------------------------------------------------
 llm:
   provider: "anthropic"                    # anthropic | openai | local
-  model: "claude-sonnet-4-5-20250929"      # Model identifier
+  model: "claude-sonnet-4-20250514"        # Model identifier (code default)
   api_key_env: "ANTHROPIC_API_KEY"         # Environment variable for API key
   temperature: 0.1                         # Low temp for consistent extraction
   max_tokens: 4096                         # Maximum response tokens

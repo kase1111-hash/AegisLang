@@ -10,6 +10,7 @@ Base URL: /api/v1
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import hmac
 import json
@@ -24,7 +25,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, BackgroundTasks, Depends, Security
@@ -33,6 +34,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 
+from aegislang import __version__
+from aegislang.agents.schema_mapping_agent import SchemaTable, SchemaType  # noqa: TC001
 from aegislang.core.logging import set_request_context, clear_request_context
 
 logger = structlog.get_logger(__name__)
@@ -44,6 +47,26 @@ logger = structlog.get_logger(__name__)
 
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 
+# Development key generated once per process when no keys are configured
+_dev_api_key: str | None = None
+_dev_api_key_lock = threading.Lock()
+
+
+def _get_dev_api_key() -> str:
+    """Return the per-process development key, generating and logging it once."""
+    global _dev_api_key  # noqa: PLW0603
+    with _dev_api_key_lock:
+        if _dev_api_key is None:
+            _dev_api_key = secrets.token_urlsafe(32)
+            logger.warning(
+                "no_api_keys_configured",
+                message="No API keys configured. Set AEGISLANG_API_KEYS or "
+                        "AEGISLANG_DISABLE_AUTH=true",
+                development_key=_dev_api_key,
+            )
+        return _dev_api_key
+
+
 # API keys can be set via environment variable (comma-separated)
 # Example: AEGISLANG_API_KEYS="key1,key2,key3"
 def get_valid_api_keys() -> set[str]:
@@ -53,14 +76,8 @@ def get_valid_api_keys() -> set[str]:
         # If no keys configured, check if auth is disabled
         if os.environ.get("AEGISLANG_DISABLE_AUTH", "").lower() == "true":
             return set()
-        # Generate a random key for development and log it
-        dev_key = secrets.token_urlsafe(32)
-        logger.warning(
-            "no_api_keys_configured",
-            message="No API keys configured. Set AEGISLANG_API_KEYS or AEGISLANG_DISABLE_AUTH=true",
-            development_key=dev_key,
-        )
-        return {dev_key}
+        # Fall back to a random development key, stable for the process lifetime
+        return {_get_dev_api_key()}
     return {k.strip() for k in keys_env.split(",") if k.strip()}
 
 
@@ -158,7 +175,8 @@ async def check_rate_limit(api_key: str = Depends(verify_api_key)) -> str:
     """Check rate limit for the API key."""
     allowed, error = _rate_limiter.is_allowed(api_key)
     if not allowed:
-        raise HTTPException(status_code=429, detail=error)
+        retry_after = "3600" if error and error.endswith("/hour") else "60"
+        raise HTTPException(status_code=429, detail=error, headers={"Retry-After": retry_after})
     return api_key
 
 # =============================================================================
@@ -168,7 +186,7 @@ async def check_rate_limit(api_key: str = Depends(verify_api_key)) -> str:
 app = FastAPI(
     title="AegisLang API",
     description="Multi-agent semantic compiler for regulatory compliance",
-    version="1.0.0",
+    version=__version__,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
@@ -230,8 +248,9 @@ class IngestResponse(BaseModel):
 class CompileRequest(BaseModel):
     """Request for document compilation."""
     doc_id: str = Field(..., description="Document ID to compile")
-    output_formats: list[str] = Field(
+    output_formats: list[Literal["yaml", "sql", "python"]] = Field(
         default=["yaml", "sql"],
+        min_length=1,
         description="Output formats to generate"
     )
     target_schema: str | None = Field(default=None, description="Target schema ID")
@@ -253,14 +272,17 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     timestamp: str
+    llm_provider: str = Field(
+        ..., description="Clause parsing provider: anthropic, openai, or mock"
+    )
 
 
 class SchemaRegistryRequest(BaseModel):
     """Request to register a schema."""
-    schema_id: str
-    schema_type: str
-    version: str = "1.0.0"
-    tables: list[dict[str, Any]]
+    schema_id: str = Field(..., min_length=1, description="Unique schema identifier")
+    schema_type: SchemaType = Field(..., description="Schema type: sql, api, or object")
+    version: str = Field(default="1.0.0", description="Schema version")
+    tables: list[SchemaTable] = Field(..., description="Table definitions")
 
 
 # =============================================================================
@@ -288,6 +310,7 @@ class Storage:
         self.clauses: dict[str, list[dict[str, Any]]] = {}
         self.artifacts: dict[str, list[dict[str, Any]]] = {}
         self.schemas: dict[str, dict[str, Any]] = {}
+        self.traces: dict[str, dict[str, Any]] = {}
 
         # Job TTL configuration (can be overridden via env var)
         self.job_ttl = job_ttl_seconds or int(
@@ -410,6 +433,11 @@ class Storage:
         with self._lock:
             self.artifacts[doc_id] = artifacts
 
+    def store_trace(self, doc_id: str, trace: dict[str, Any]) -> None:
+        """Thread-safe storage of validation results and provenance graph."""
+        with self._lock:
+            self.traces[doc_id] = trace
+
 
 def _create_storage() -> Storage:
     """Create storage backend based on AEGISLANG_STORAGE_BACKEND env var."""
@@ -467,16 +495,51 @@ def secure_delete_file(file_path: Path) -> None:
         try:
             if file_path.exists():
                 file_path.unlink()
-        except Exception:
-            pass
+        except Exception as unlink_error:
+            logger.error("temp_file_delete_failed", path=str(file_path), error=str(unlink_error))
+
+
+def _llm_provider() -> str:
+    """Select the clause-parsing provider from the configured API keys.
+
+    Anthropic is preferred when both keys are set; mock is used when neither is.
+    """
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai"
+    return "mock"
 
 
 def _should_use_mock() -> bool:
     """Use mock providers when no LLM API keys are available."""
-    return not (
-        os.environ.get("ANTHROPIC_API_KEY")
-        or os.environ.get("OPENAI_API_KEY")
-    )
+    return _llm_provider() == "mock"
+
+
+def build_schema_registry(storage: Storage) -> Any:
+    """Build the mapping registry: built-in schemas plus schemas registered via the API.
+
+    A registered schema replaces a built-in schema with the same ID.
+    """
+    from aegislang.agents.schema_mapping_agent import TargetSchema, create_default_registry
+
+    registry = create_default_registry()
+    registered = [
+        TargetSchema(**{k: v for k, v in schema.items() if k != "registered_at"})
+        for schema in storage.schemas.values()
+    ]
+    registered_ids = {schema.schema_id for schema in registered}
+    registry.schemas = [
+        s for s in registry.schemas if s.schema_id not in registered_ids
+    ] + registered
+    return registry
+
+
+def known_schema_ids(storage: Storage) -> set[str]:
+    """IDs of all schemas available as a compilation target."""
+    from aegislang.agents.schema_mapping_agent import create_default_registry
+
+    return {s.schema_id for s in create_default_registry().schemas} | set(storage.schemas.keys())
 
 
 def process_ingestion(
@@ -485,6 +548,7 @@ def process_ingestion(
     metadata: dict[str, Any],
     storage: Storage,
     doc_id: str | None = None,
+    source_name: str | None = None,
 ) -> None:
     """Background task for document ingestion."""
     try:
@@ -500,7 +564,9 @@ def process_ingestion(
         storage_key = doc_id or result.doc_id
 
         # Store document
-        doc_data = result.model_dump()
+        doc_data = result.model_dump(mode="json")
+        # Report the uploaded file name, not the server-side temp path
+        doc_data["metadata"]["source_file"] = source_name or file_path.name
         doc_data["metadata"].update(metadata)
         doc_data["doc_id"] = storage_key
         storage.store_document(storage_key, doc_data)
@@ -518,8 +584,11 @@ def process_ingestion(
         storage.update_job(job_id, JobStatus.FAILED, error=str(e))
 
     finally:
-        # Securely cleanup temp file
+        # Securely cleanup temp file and its private directory
         secure_delete_file(file_path)
+        if file_path.parent.parent == Path(tempfile.gettempdir()) / "aegislang":
+            with contextlib.suppress(OSError):
+                file_path.parent.rmdir()
 
 
 def process_compilation(
@@ -543,25 +612,26 @@ def process_compilation(
         # Run parser
         from aegislang.agents.policy_parser_agent import PolicyParserAgent
 
-        parser = PolicyParserAgent(use_mock=_should_use_mock())
+        provider = _llm_provider()
+        parser = PolicyParserAgent(
+            llm_provider="anthropic" if provider == "mock" else provider,
+            use_mock=provider == "mock",
+        )
         parsed = parser.parse_ingested_document(doc_data)
-        parsed_data = parsed.model_dump()
+        parsed_data = parsed.model_dump(mode="json")
 
         # Store clauses
         storage.store_clauses(doc_id, parsed_data.get("clauses", []))
 
         # Run mapper
-        from aegislang.agents.schema_mapping_agent import (
-            SchemaMappingAgent,
-            create_default_registry,
-        )
+        from aegislang.agents.schema_mapping_agent import SchemaMappingAgent
 
         mapper = SchemaMappingAgent(
-            registry=create_default_registry(),
+            registry=build_schema_registry(storage),
             use_mock=_should_use_mock(),
         )
         mapped = mapper.map_parsed_collection(parsed_data, target_schema)
-        mapped_data = mapped.model_dump()
+        mapped_data = mapped.model_dump(mode="json")
 
         # Run compiler
         from aegislang.agents.compiler_agent import CompilerAgent, ArtifactFormat
@@ -569,7 +639,7 @@ def process_compilation(
         compiler = CompilerAgent()
         formats = [ArtifactFormat(f) for f in output_formats]
         compiled = compiler.compile_mapped_collection(mapped_data, formats)
-        compiled_data = compiled.model_dump()
+        compiled_data = compiled.model_dump(mode="json")
 
         # Store artifacts
         storage.store_artifacts(doc_id, compiled_data.get("artifacts", []))
@@ -585,6 +655,19 @@ def process_compilation(
         )
         validated = validator.validate_compiled_collection(
             compiled_data, mapped_data, parsed_data
+        )
+        provenance = validator.build_provenance_graph(validated)
+
+        # Store validation results and provenance graph (audit trail)
+        storage.store_trace(
+            doc_id,
+            {
+                "doc_id": doc_id,
+                "summary": validated.summary,
+                "validation_timestamp": validated.validation_timestamp,
+                "results": [r.model_dump(mode="json") for r in validated.results],
+                "provenance_graph": provenance.model_dump(mode="json"),
+            },
         )
 
         storage.update_job(
@@ -614,8 +697,9 @@ async def health_check() -> HealthResponse:
     """Health check endpoint."""
     return HealthResponse(
         status="healthy",
-        version="1.0.0",
+        version=__version__,
         timestamp=datetime.now(timezone.utc).isoformat(),
+        llm_provider=_llm_provider(),
     )
 
 
@@ -688,27 +772,29 @@ async def ingest_document(
     # Parse metadata
     try:
         meta_dict = json.loads(metadata)
-        # Validate metadata is a dict (prevent injection)
-        if not isinstance(meta_dict, dict):
-            meta_dict = {}
-    except json.JSONDecodeError:
-        meta_dict = {}
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail="metadata must be valid JSON") from e
+    # Validate metadata is a JSON object (prevent injection)
+    if not isinstance(meta_dict, dict):
+        raise HTTPException(status_code=400, detail="metadata must be a JSON object")
 
-    # Save file to temp location with secure naming
-    temp_dir = Path(tempfile.gettempdir()) / "aegislang"
-    temp_dir.mkdir(exist_ok=True, mode=0o700)  # Restrictive permissions
+    # Sanitize document name from filename
+    safe_stem = re.sub(r"[^A-Za-z0-9_-]", "_", Path(file.filename or "document").stem)
+    safe_stem = safe_stem[:50].upper() or "DOCUMENT"  # Limit length
+    doc_id = f"{safe_stem}_{uuid.uuid4().hex[:6].upper()}"
 
-    # Use only UUID for temp filename - no user input
-    temp_path = temp_dir / f"{uuid.uuid4().hex}{file_ext}"
+    # Save file to a private, uniquely named temp directory. The file itself is
+    # named after the sanitized stem so section/chunk/clause IDs reflect the
+    # uploaded document name rather than a random temp name.
+    temp_root = Path(tempfile.gettempdir()) / "aegislang"
+    temp_root.mkdir(exist_ok=True, mode=0o700)  # Restrictive permissions
+    temp_dir = temp_root / uuid.uuid4().hex
+    temp_dir.mkdir(mode=0o700)
+    temp_path = temp_dir / f"{safe_stem}{file_ext}"
     temp_path.write_bytes(content)
 
     # Create job
     job_id = storage.create_job("ing")
-
-    # Sanitize document ID from filename
-    safe_stem = re.sub(r"[^A-Za-z0-9_-]", "_", Path(file.filename or "document").stem)
-    safe_stem = safe_stem[:50].upper()  # Limit length
-    doc_id = f"{safe_stem}_{uuid.uuid4().hex[:6].upper()}"
 
     # Schedule background task
     background_tasks.add_task(
@@ -718,6 +804,7 @@ async def ingest_document(
         meta_dict,
         storage,
         doc_id,
+        Path(file.filename or "document").name,
     )
 
     return IngestResponse(
@@ -787,18 +874,34 @@ async def get_rule(
     storage: Storage = Depends(get_storage),
     api_key: str = Depends(check_rate_limit),
 ) -> dict[str, Any]:
-    """Retrieve generated rule artifact for a clause. Requires X-API-Key header."""
+    """Retrieve all generated artifacts for a clause. Requires X-API-Key header."""
     # Search through all artifacts
     for doc_id, artifacts in storage.artifacts.items():
-        for artifact in artifacts:
-            if artifact.get("clause_id") == clause_id:
-                return {
-                    "clause_id": clause_id,
-                    "artifacts": [artifact],
-                    "doc_id": doc_id,
-                }
+        matches = [a for a in artifacts if a.get("clause_id") == clause_id]
+        if matches:
+            return {
+                "clause_id": clause_id,
+                "artifacts": matches,
+                "doc_id": doc_id,
+            }
 
     raise HTTPException(status_code=404, detail="Rule not found")
+
+
+@app.get("/api/v1/trace/{doc_id}", tags=["Traceability"])
+async def get_trace(
+    doc_id: str,
+    storage: Storage = Depends(get_storage),
+    api_key: str = Depends(check_rate_limit),
+) -> dict[str, Any]:
+    """Retrieve validation results and the provenance graph for a compiled document.
+
+    Requires X-API-Key header.
+    """
+    if doc_id not in storage.traces:
+        raise HTTPException(status_code=404, detail="Trace not found for document")
+
+    return storage.traces[doc_id]
 
 
 @app.post("/api/v1/compile", tags=["Compilation"])
@@ -811,6 +914,11 @@ async def compile_document(
     """Trigger full compilation pipeline for a document. Requires X-API-Key header."""
     if request.doc_id not in storage.documents:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    if request.target_schema and request.target_schema not in known_schema_ids(storage):
+        raise HTTPException(
+            status_code=404, detail=f"Schema not found: {request.target_schema}"
+        )
 
     # Create job
     job_id = storage.create_job("cmp")
@@ -891,9 +999,9 @@ async def register_schema(
     """Register or update a target schema. Requires X-API-Key header."""
     storage.schemas[request.schema_id] = {
         "schema_id": request.schema_id,
-        "schema_type": request.schema_type,
+        "schema_type": request.schema_type.value,
         "version": request.version,
-        "tables": request.tables,
+        "tables": [table.model_dump(exclude_none=True) for table in request.tables],
         "registered_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -947,7 +1055,26 @@ def main() -> None:
     """Run the API server."""
     import uvicorn
 
-    host = os.environ.get("HOST", "0.0.0.0")
+    from aegislang.core.errors import is_production
+    from aegislang.core.logging import setup_logging
+
+    # AEGISLANG_LOG_LEVEL takes precedence over LOG_LEVEL; SENTRY_DSN and
+    # AEGISLANG_LOG_FILE are read by setup_logging itself.
+    setup_logging(
+        level=os.environ.get("LOG_LEVEL", "INFO"),
+        json_output=is_production(),
+    )
+
+    # Generate the development key before workers start so that every worker
+    # process accepts the same key that is logged here.
+    if (
+        not os.environ.get("AEGISLANG_API_KEYS")
+        and os.environ.get("AEGISLANG_DISABLE_AUTH", "").lower() != "true"
+    ):
+        os.environ["AEGISLANG_API_KEYS"] = _get_dev_api_key()
+
+    # Binding all interfaces is intended for container deployment; override with HOST
+    host = os.environ.get("HOST", "0.0.0.0")  # nosec B104
     port = int(os.environ.get("PORT", "8080"))
     workers = int(os.environ.get("WORKERS", "4"))
     reload = os.environ.get("RELOAD", "false").lower() == "true"

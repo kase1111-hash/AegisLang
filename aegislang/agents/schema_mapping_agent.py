@@ -471,6 +471,8 @@ class SchemaMappingAgent:
 
     def _build_field_index(self) -> None:
         """Build embedding index for all schema fields."""
+        # Rebuild from scratch so replaced or removed schemas leave no stale fields
+        self._field_embeddings = {}
         for schema in self.registry.schemas:
             for table in schema.tables:
                 for field in table.fields:
@@ -1000,33 +1002,6 @@ def create_default_registry() -> SchemaRegistry:
 
 
 # -----------------------------------------------------------------------------
-# Event Publishing (Agent-OS Integration)
-# -----------------------------------------------------------------------------
-
-
-async def publish_mapped_event(
-    collection: MappedClauseCollection,
-    redis_url: str | None = None,
-) -> None:
-    """Publish policy.mapped event to Agent-OS event bus."""
-    from aegislang.core.events import publish_event
-
-    success = await publish_event(
-        topic="policy.mapped",
-        data=collection.model_dump_json(),
-        redis_url=redis_url,
-    )
-
-    if success:
-        logger.info(
-            "event_published",
-            topic="policy.mapped",
-            doc_id=collection.doc_id,
-            clause_count=len(collection.clauses),
-        )
-
-
-# -----------------------------------------------------------------------------
 # CLI Entry Point
 # -----------------------------------------------------------------------------
 
@@ -1035,6 +1010,10 @@ def main() -> None:
     """Command-line interface for schema mapping."""
     import argparse
     import sys
+
+    from aegislang.core.logging import configure_cli_logging
+
+    configure_cli_logging()
 
     parser = argparse.ArgumentParser(
         description="AegisLang Schema Mapper - L3 Mapping Layer"

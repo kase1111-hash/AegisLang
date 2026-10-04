@@ -25,12 +25,28 @@ from pathlib import Path
 from typing import Any
 
 import structlog
-from jinja2 import Environment, BaseLoader, TemplateNotFound, select_autoescape
+from jinja2 import BaseLoader, TemplateNotFound, select_autoescape
+from jinja2.sandbox import SandboxedEnvironment
 from pydantic import BaseModel, Field
 
 logger = structlog.get_logger(__name__)
 
 VERSION = "0.1.0"
+
+
+def _to_plain(value: Any) -> Any:
+    """Recursively replace Enum members with their values.
+
+    Collections built with ``model_dump()`` (not ``mode="json"``) carry Enum
+    members, which would otherwise render as e.g. ``ClauseType.OBLIGATION``.
+    """
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, dict):
+        return {k: _to_plain(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_to_plain(v) for v in value]
+    return value
 
 
 # -----------------------------------------------------------------------------
@@ -223,9 +239,13 @@ CHECK (
 );
 
 {% endif %}
-
+{% if clause.type in ('obligation', 'prohibition') %}
 COMMENT ON CONSTRAINT chk_{{ clause.clause_id | lower | replace('-', '_') }}{% if clause.type == 'prohibition' %}_prohibit{% endif %} ON {{ table_name }}
 IS 'AegisLang: {{ clause.source_text | sqlsafe(200) }}';
+{% else %}
+-- {{ clause.type | capitalize }} clause: no database constraint is generated for this
+-- clause type. It is recorded here for clause-to-artifact traceability only.
+{% endif %}
 '''
 
 PYTHON_TEST_TEMPLATE = '''"""
@@ -546,7 +566,8 @@ class TemplateRegistry:
         }
         # Initialize Jinja2 with autoescape for HTML/XML as defense-in-depth
         # This protects against XSS if HTML output is ever added
-        self._env = Environment(
+        # Sandboxed so custom templates cannot reach Python internals
+        self._env = SandboxedEnvironment(
             loader=BaseLoader(),
             autoescape=select_autoescape(
                 enabled_extensions=["html", "htm", "xml"],
@@ -617,7 +638,8 @@ class TemplateRegistry:
                 self._templates[format_name] = {}
 
             for template_file in format_dir.glob("*.j2"):
-                clause_type = template_file.stem
+                # "obligation.yaml.j2" -> "obligation" (clause type or "default")
+                clause_type = template_file.name.split(".", 1)[0]
                 self._templates[format_name][clause_type] = template_file.read_text()
 
         logger.info("templates_loaded", directory=str(templates_dir))
@@ -777,7 +799,7 @@ class CompilerAgent:
         Returns:
             CompiledArtifact
         """
-        clause = mapped_clause["source_clause"]
+        clause = _to_plain(mapped_clause["source_clause"])
         clause_id = mapped_clause["clause_id"]
         clause_type = clause.get("type", "obligation")
 
@@ -973,33 +995,6 @@ class CompilerAgent:
 
 
 # -----------------------------------------------------------------------------
-# Event Publishing (Agent-OS Integration)
-# -----------------------------------------------------------------------------
-
-
-async def publish_compiled_event(
-    collection: CompiledArtifactCollection,
-    redis_url: str | None = None,
-) -> None:
-    """Publish policy.compiled event to Agent-OS event bus."""
-    from aegislang.core.events import publish_event
-
-    success = await publish_event(
-        topic="policy.compiled",
-        data=collection.model_dump_json(),
-        redis_url=redis_url,
-    )
-
-    if success:
-        logger.info(
-            "event_published",
-            topic="policy.compiled",
-            doc_id=collection.doc_id,
-            artifact_count=len(collection.artifacts),
-        )
-
-
-# -----------------------------------------------------------------------------
 # CLI Entry Point
 # -----------------------------------------------------------------------------
 
@@ -1008,6 +1003,10 @@ def main() -> None:
     """Command-line interface for compilation."""
     import argparse
     import sys
+
+    from aegislang.core.logging import configure_cli_logging
+
+    configure_cli_logging()
 
     parser = argparse.ArgumentParser(
         description="AegisLang Compiler - L4 Compilation Layer"

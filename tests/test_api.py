@@ -5,6 +5,7 @@ API tests for AegisLang REST API.
 import pytest
 from fastapi.testclient import TestClient
 import json
+from pathlib import Path
 
 
 # =============================================================================
@@ -61,7 +62,7 @@ class TestHealthCheck:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["version"] == "1.0.0"
+        assert data["version"] == (Path(__file__).parent.parent / "VERSION").read_text().strip()
 
 
 # =============================================================================
@@ -288,8 +289,9 @@ class TestErrorHandling:
                 data={"metadata": "not valid json{"},
             )
 
-        # Should still accept (invalid JSON becomes empty dict)
-        assert response.status_code == 200
+        # Malformed metadata is rejected rather than silently dropped
+        assert response.status_code == 400
+        assert response.json()["status_code"] == 400
 
     def test_missing_file(self, client):
         """Test ingestion without file."""

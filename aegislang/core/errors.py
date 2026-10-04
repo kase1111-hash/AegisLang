@@ -11,9 +11,11 @@ import traceback
 from typing import Any, Callable
 
 import structlog
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = structlog.get_logger(__name__)
 
@@ -199,6 +201,7 @@ def create_error_response(
     error_code: str | None = None,
     request_id: str | None = None,
     details: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """Create a standardized error response."""
     if isinstance(error, Exception):
@@ -220,7 +223,7 @@ def create_error_response(
         details=response_details,
     ).model_dump(exclude_none=True)
 
-    return JSONResponse(status_code=status_code, content=content)
+    return JSONResponse(status_code=status_code, content=content, headers=headers)
 
 
 # -----------------------------------------------------------------------------
@@ -257,15 +260,42 @@ def register_error_handlers(app: FastAPI) -> None:
             details=exc.details if not is_production() else None,
         )
 
-    @app.exception_handler(HTTPException)
-    async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
-        """Handle FastAPI HTTP exceptions."""
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(
+        request: Request, exc: StarletteHTTPException
+    ) -> JSONResponse:
+        """Handle HTTP exceptions (FastAPI and Starlette, e.g. 404/405 routing errors)."""
         request_id = getattr(request.state, "request_id", None)
 
         return create_error_response(
-            error=exc.detail,
+            error=str(exc.detail),
             status_code=exc.status_code,
             request_id=request_id,
+            headers=getattr(exc, "headers", None),
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        """Handle request validation errors (missing or invalid fields)."""
+        request_id = getattr(request.state, "request_id", None)
+
+        errors = [
+            ValidationErrorDetail(
+                field=".".join(str(part) for part in err.get("loc", ())),
+                message=err.get("msg", ""),
+                type=err.get("type", ""),
+            ).model_dump()
+            for err in exc.errors()
+        ]
+
+        return create_error_response(
+            error="Request validation failed",
+            status_code=422,
+            error_code="VALIDATION_ERROR",
+            request_id=request_id,
+            details={"errors": errors},
         )
 
     @app.exception_handler(Exception)

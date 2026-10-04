@@ -1,0 +1,45 @@
+# Source: Financial institutions must maintain records of customer identification informat...
+# Clause ID: FINCEN_CDD_RULE_09FC62_FINCEN_CDD_RULE_S009_C000_CL001
+# Generated: 2026-10-04T20:17:09.752576+00:00
+# Confidence: 0.5
+
+control:
+  id: FINCEN_CDD_RULE_09FC62_FINCEN_CDD_RULE_S009_C000_CL001
+  type: obligation
+  rule: "maintain records"
+
+  actor:
+    entity: "Financial institutions"
+
+
+  action:
+    operation: "maintain"
+
+
+
+  object:
+    entity: "records"
+
+
+
+
+  trigger:
+    event: "account closure"
+
+
+
+
+  temporal_scope:
+
+
+
+    duration: "five years"
+
+
+
+  severity: high
+
+  metadata:
+    source_document: "FINCEN_CDD_RULE_09FC62"
+    confidence: 0.5
+    generated_by: "aegislang-compiler-v0.1.0"

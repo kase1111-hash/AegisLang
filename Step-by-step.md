@@ -18,22 +18,22 @@
 - [x] Add input validation & sanitation
 - [x] Implement error handling
 - [x] Add general logging
-- [x] Add error logging (Sentry, ELK, etc.)
+- [x] Add error logging (Sentry, ELK, etc.) — optional Sentry, enabled by `SENTRY_DSN`
 - [x] Secure configuration (.env or secrets manager)
 - [x] Add command-line interface (if needed)
-- [x] Build GUI or frontend (CLI application by design)
-- [x] Add accessibility & localization support (CLI application)
+- [ ] Build GUI or frontend — not built; REST API (with Swagger UI) and per-agent CLIs only
+- [ ] Add accessibility & localization support — not done (English only)
 
 ## Testing & Validation
 - [x] Write unit tests
 - [x] Write integration tests
 - [x] Write system/acceptance tests
 - [x] Add regression test suite
-- [x] Conduct performance testing (load, stress)
+- [x] Conduct performance testing (load, stress) — Locust/stress scripts in `tests/performance/`
 - [ ] Perform security checks (input, encryption, tokens)
 - [ ] Perform exploit testing (SQLi, XSS, overflow)
 - [ ] Check for backdoors & unauthorized access
-- [x] Run static analysis (lint, type check, vuln scan)
+- [ ] Run static analysis (lint, type check, vuln scan) — tools configured and Bandit is clean, but Ruff (~367 findings), Black (~21 files) and MyPy (~58 errors) are not clean yet
 - [ ] Run dynamic analysis (fuzzing, runtime behavior)
 
 ## Build, Deployment & Monitoring
@@ -42,9 +42,9 @@
 - [x] Configure environment-specific settings (dev/stage/prod)
 - [x] Build distributable packages (Dockerfile, zip, exe)
 - [ ] Create installer or assembly file (.bat, setup wizard)
-- [x] Implement semantic versioning (v1.0.0)
+- [x] Implement semantic versioning (currently v0.1.0)
 - [ ] Automate deployment process
-- [x] Add telemetry & metrics collection
+- [ ] Add telemetry & metrics collection — no metrics module; structured logs and optional Sentry only
 - [ ] Monitor uptime, errors, and performance
 - [ ] Add rollback & recovery mechanisms
 
@@ -57,5 +57,5 @@
 - [x] Finalize user documentation (README, FAQ, troubleshooting)
 - [x] Add license file
 - [x] Write changelog
-- [x] Perform compliance review (GDPR, HIPAA, etc.)
-- [x] Tag release & archive build artifacts
+- [x] Perform compliance review (GDPR, HIPAA, etc.) — self-assessment in `docs/COMPLIANCE.md`, not an external audit
+- [ ] Tag release & archive build artifacts — no release tags yet (CI pushes Docker images to GHCR on non-PR pushes)
