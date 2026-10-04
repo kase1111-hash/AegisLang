@@ -204,7 +204,8 @@ class SentryIntegration:
                 level=level,
                 data=data or {},
             )
-        except Exception:
+        except Exception:  # nosec B110
+            # Breadcrumbs are best effort; never fail the caller
             pass
 
 

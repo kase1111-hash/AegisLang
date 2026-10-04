@@ -495,8 +495,8 @@ def secure_delete_file(file_path: Path) -> None:
         try:
             if file_path.exists():
                 file_path.unlink()
-        except Exception:
-            pass
+        except Exception as unlink_error:
+            logger.error("temp_file_delete_failed", path=str(file_path), error=str(unlink_error))
 
 
 def _llm_provider() -> str:
@@ -1073,7 +1073,8 @@ def main() -> None:
     ):
         os.environ["AEGISLANG_API_KEYS"] = _get_dev_api_key()
 
-    host = os.environ.get("HOST", "0.0.0.0")
+    # Binding all interfaces is intended for container deployment; override with HOST
+    host = os.environ.get("HOST", "0.0.0.0")  # nosec B104
     port = int(os.environ.get("PORT", "8080"))
     workers = int(os.environ.get("WORKERS", "4"))
     reload = os.environ.get("RELOAD", "false").lower() == "true"
